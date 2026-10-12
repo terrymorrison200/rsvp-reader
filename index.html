@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Swift Read">
+<title>Swift Read — RSVP reader</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-theme="dark">
+<div id="app">
+  <!-- LIBRARY -->
+  <section id="libraryView" class="view active">
+    <header class="topbar">
+      <div class="brand"><span class="logo-dot"></span>Swift Read</div>
+      <div class="top-actions">
+        <button class="icon-btn" id="statsBtn" aria-label="Stats" title="Stats"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></button>
+        <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      </div>
+    </header>
+    <main class="lib-main">
+      <div class="hero">
+        <h1>Read faster, calmly.</h1>
+        <p>One word at a time, perfectly centred. Everything stays on this device.</p>
+      </div>
+      <div class="import-row">
+        <button class="btn primary" id="pasteBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Paste text</button>
+        <label class="btn" id="fileLabel"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Open file<input type="file" id="fileInput" accept=".txt,.md,.markdown,.html,.htm,.pdf,.epub,text/plain,text/html,application/pdf,application/epub+zip" hidden></label>
+      </div>
+      <p class="hint">TXT · Markdown · HTML · PDF · EPUB — or drop a file anywhere</p>
+      <h2 class="section-title">Library</h2>
+      <ul id="libList" class="lib-list"></ul>
+      <p id="libEmpty" class="empty">Your library is empty. Paste some text or open a file to begin.</p>
+    </main>
+  </section>
+
+  <!-- READER -->
+  <section id="readerView" class="view">
+    <header class="topbar reader-top fadeable">
+      <button class="icon-btn" id="backBtn" aria-label="Library"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="doc-title" id="docTitle"></div>
+      <div class="top-actions">
+        <button class="icon-btn" id="chaptersBtn" aria-label="Chapters" title="Chapters"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+        <button class="icon-btn" id="hlListBtn" aria-label="Highlights" title="Highlights"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></button>
+        <button class="icon-btn" id="settingsBtn2" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></button>
+      </div>
+    </header>
+
+    <div id="stage" class="stage">
+      <div id="contextBox" class="context" aria-live="polite"></div>
+      <div class="rsvp" id="rsvp">
+        <div class="guide top"></div>
+        <div class="word" id="word"><span class="pre" id="wPre"></span><span class="orp" id="wOrp"></span><span class="post" id="wPost"></span></div>
+        <div class="guide bottom"></div>
+      </div>
+      <div class="tap-hint" id="tapHint">Tap to play</div>
+    </div>
+
+    <footer class="controls fadeable" id="controls">
+      <div class="progress-row">
+        <span id="posLabel" class="mono small">0%</span>
+        <input type="range" id="progress" min="0" max="1000" value="0" aria-label="Progress">
+        <span id="remainLabel" class="mono small">0:00</span>
+      </div>
+      <div class="transport">
+        <button class="icon-btn" id="prevSentBtn" aria-label="Previous sentence" title="Previous sentence (←)"><svg viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7M20 19l-7-7 7-7"/></svg></button>
+        <button class="icon-btn" id="prevWordBtn" aria-label="Previous word" title="Back one word"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="play-btn" id="playBtn" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/></svg></button>
+        <button class="icon-btn" id="nextWordBtn" aria-label="Next word" title="Forward one word"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="icon-btn" id="nextSentBtn" aria-label="Next sentence" title="Next sentence (→)"><svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M4 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="speed-row">
+        <button class="chip-btn" id="slowerBtn" aria-label="Slower">−</button>
+        <input type="range" id="wpm" min="100" max="1000" step="5" value="300" aria-label="Words per minute">
+        <button class="chip-btn" id="fasterBtn" aria-label="Faster">+</button>
+        <span class="wpm-label"><b id="wpmLabel">300</b> wpm</span>
+      </div>
+      <div class="extra-row">
+        <button class="pill" id="narrateBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Narrate</button>
+        <button class="pill" id="highlightBtn"><svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>Save sentence</button>
+      </div>
+    </footer>
+  </section>
+</div>
+
+<!-- Sheets -->
+<div class="scrim" id="scrim"></div>
+
+<div class="sheet" id="pasteSheet" role="dialog" aria-label="Paste text">
+  <div class="grab"></div>
+  <h3>Paste text</h3>
+  <input type="text" id="pasteTitle" class="field" placeholder="Title (optional)">
+  <textarea id="pasteText" class="field" rows="9" placeholder="Paste or type anything here…"></textarea>
+  <div class="sheet-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" id="pasteSave">Add &amp; read</button></div>
+</div>
+
+<div class="sheet" id="settingsSheet" role="dialog" aria-label="Settings">
+  <div class="grab"></div>
+  <h3>Settings</h3>
+  <div class="set-group"><label>Theme</label>
+    <div class="seg" id="themeSeg">
+      <button data-v="dark"><i class="sw" style="background:#0f1115"></i>Dark</button>
+      <button data-v="light"><i class="sw" style="background:#f7f7f5"></i>Light</button>
+      <button data-v="sepia"><i class="sw" style="background:#f3e9d6"></i>Sepia</button>
+      <button data-v="oled"><i class="sw" style="background:#000"></i>OLED</button>
+    </div></div>
+  <div class="set-group"><label>Font</label>
+    <div class="seg" id="fontSeg">
+      <button data-v="inter" style="font-family:Inter">Sans</button>
+      <button data-v="literata" style="font-family:Literata">Serif</button>
+      <button data-v="mono" style="font-family:JBMono">Mono</button>
+      <button data-v="dyslexic" style="font-family:OpenDyslexic;font-size:.8em">Dyslexic</button>
+    </div></div>
+  <div class="set-group"><label>Font size <span class="val" id="sizeVal"></span></label><input type="range" id="sizeIn" min="28" max="96" step="2"></div>
+  <div class="set-group"><label>Words per flash</label>
+    <div class="seg" id="chunkSeg"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button></div></div>
+  <div class="set-group"><label>Focus letter colour</label>
+    <div class="colors" id="colorRow">
+      <button data-v="#ff4d4d" style="--c:#ff4d4d" aria-label="Red"></button>
+      <button data-v="#ff9f1c" style="--c:#ff9f1c" aria-label="Orange"></button>
+      <button data-v="#2ec4b6" style="--c:#2ec4b6" aria-label="Teal"></button>
+      <button data-v="#4d8dff" style="--c:#4d8dff" aria-label="Blue"></button>
+      <button data-v="#b15cff" style="--c:#b15cff" aria-label="Purple"></button>
+      <label class="custom-color" aria-label="Custom colour"><input type="color" id="colorIn"></label>
+    </div></div>
+  <div class="set-group toggles">
+    <label class="toggle"><input type="checkbox" id="guidesIn"><span></span>Guide marks</label>
+    <label class="toggle"><input type="checkbox" id="rampIn"><span></span>Ramp-up start</label>
+    <label class="toggle"><input type="checkbox" id="smartIn"><span></span>Smart pauses</label>
+  </div>
+  <div class="set-group"><label>Narration voice</label><select id="voiceSel" class="field"></select>
+    <label>Narration rate <span class="val" id="rateVal"></span></label><input type="range" id="rateIn" min="0.5" max="2.5" step="0.1"></div>
+  <div class="set-group kbd-help"><label>Keyboard</label>
+    <p><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> sentence · <kbd>↑</kbd><kbd>↓</kbd> speed · <kbd>,</kbd><kbd>.</kbd> word · <kbd>S</kbd> save sentence · <kbd>Esc</kbd> back</p></div>
+  <div class="sheet-actions"><button class="btn primary" data-close>Done</button></div>
+</div>
+
+<div class="sheet" id="listSheet" role="dialog"><div class="grab"></div><h3 id="listTitle"></h3><ul id="listBody" class="sheet-list"></ul><div class="sheet-actions"><button class="btn" data-close>Close</button></div></div>
+
+<div class="sheet" id="statsSheet" role="dialog" aria-label="Stats"><div class="grab"></div><h3>Your reading</h3>
+  <div class="stats-grid" id="statsGrid"></div>
+  <div class="week" id="weekChart"></div>
+  <div class="sheet-actions"><button class="btn primary" data-close>Done</button></div></div>
+
+<div class="toast" id="toast"></div>
+<div class="drop-overlay" id="dropOverlay">Drop to import</div>
+<div class="loading" id="loading"><div class="spinner"></div><span id="loadingText">Importing…</span></div>
+
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
