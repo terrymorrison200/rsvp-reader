@@ -1,4 +1,4 @@
-const APP_VER = 'v13';
+const APP_VER = 'v14';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -874,11 +874,14 @@ const hideContext = () => $('#contextBox').classList.remove('show');
 /* ---------------- Narration ---------------- */
 R.utterGen = 0;
 function loadVoices() {
-  const vs = ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter((v) => /^en[-_]US$/i.test(v.lang)); const sel = $('#voiceSel'); // US English only
-  const lang = navigator.language.slice(0, 2);
-  const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
+  const normLang = (v) => String(v.lang || '').replace('_', '-').toLowerCase();
+  const all = 'speechSynthesis' in window ? speechSynthesis.getVoices() : [];
+  // US English only (lang en-US / en_US, or a voiceURI like com.apple.voice.premium.en-US.Ava); "Show all English voices" widens it
+  const vs = all.filter((v) => (S.allEn ? /^en\b/.test(normLang(v)) || /[.\-_]en[-_]/i.test(v.voiceURI) : normLang(v) === 'en-us' || /[.]en[-_]US[.]/i.test(v.voiceURI)));
+  const sel = $('#voiceSel');
+  const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (normLang(b) === 'en-us') - (normLang(a) === 'en-us') || a.name.localeCompare(b.name));
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
-  const dev = vs.length ? sorted.map((v) => opt(v.voiceURI, `${v.name} (${v.lang})${voiceQ(v) ? ' ★' : ''}${v.localService ? '' : ' ☁'}`)).join('') : opt('', 'System default');
+  const dev = vs.length ? sorted.map((v) => opt(v.voiceURI, `${['', '', 'Enhanced · ', 'Premium · '][voiceQ(v)]}${v.name.replace(/\s*\((premium|enhanced)\)/i, '')} (${v.lang})${v.localService ? '' : ' ☁'}`)).join('') : opt('', 'System default');
   let html = '';
   if (elReady()) {
     let el = EL.voices.length ? [...EL.voices] : [{ voice_id: EL_DEFAULT, name: 'Sarah' }];
@@ -941,7 +944,10 @@ const SILENT_WAV = (() => { const n = 800, b = new Uint8Array(44 + n), d = new D
   w(0, 'RIFF'); d.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 8000, true); d.setUint32(28, 8000, true); d.setUint16(32, 1, true); d.setUint16(34, 8, true); w(36, 'data'); d.setUint32(40, n, true); b.fill(128, 44);
   return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...b)); })();
 function elUnlock() { if (EA._unlocked) return; try { EA.src = SILENT_WAV; const p = EA.play(); if (p) p.then(() => { EA._unlocked = true; }).catch((e) => console.warn('unlock', e)); } catch (e) { console.warn('unlock', e); } }
-const voiceQ = (v) => (/enhanced|premium|neural|siri|natural/i.test(v.name) ? 1 : 0);
+// 3 = Premium, 2 = Enhanced, 1 = other good (Siri/neural/natural), 0 = rest
+const voiceQ = (v) => { const t = v.name + ' ' + v.voiceURI; return /premium/i.test(t) ? 3 : /enhanced/i.test(t) ? 2 : /neural|siri|natural/i.test(t) ? 1 : 0; };
+// iOS fills getVoices() late and doesn't always fire voiceschanged: re-poll for ~3 s
+let vPoll = 0; function pollVoices() { const id = ++vPoll; let n = -1; [150, 500, 1000, 1800, 3000].forEach((ms) => setTimeout(() => { if (id !== vPoll || !('speechSynthesis' in window)) return; const c = speechSynthesis.getVoices().length; if (c !== n) { n = c; loadVoices(); } }, ms)); }
 const relayBase = () => (S.relayUrl || '').trim().replace(/\/+$/, '');
 const elReady = () => !!(relayBase() && S.relayToken);
 const isEleven = () => elReady() && !EL.off && String(S.voice).startsWith('eleven:');
@@ -1131,7 +1137,7 @@ let gsT; $('#gutSearch').oninput = (e) => { clearTimeout(gsT); gsT = setTimeout(
 $('#gutSearchForm').onsubmit = (e) => { e.preventDefault(); clearTimeout(gsT); G.q = $('#gutSearch').value.trim(); $('#gutSearch').blur(); gutLoad(true); };
 $('#gutMain').addEventListener('scroll', (e) => { const m = e.target; if (m.scrollTop + m.clientHeight > m.scrollHeight - 900) gutLoad(false); }, { passive: true });
 new IntersectionObserver((es) => { if (es[0].isIntersecting && G.next && $('#gutView').classList.contains('active')) gutLoad(false); }, { root: $('#gutMain'), rootMargin: '600px' }).observe($('#gutSentinel'));
-$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { $('#relayUrlIn').value = S.relayUrl; $('#relayTokIn').value = S.relayToken; loadVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
+$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { $('#relayUrlIn').value = S.relayUrl; $('#relayTokIn').value = S.relayToken; loadVoices(); pollVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
 $('#statsBtn').onclick = () => { renderStats(); openSheet('statsSheet'); };
 $('#scrim').onclick = closeSheets;
 $$('[data-close]').forEach((b) => (b.onclick = closeSheets));
@@ -1183,8 +1189,9 @@ $('#relayUrlIn').onchange = relayIn; $('#relayTokIn').onchange = relayIn; $('#re
 // one-time: relay already configured but a system voice still selected -> switch to ElevenLabs (user can switch back)
 if (elReady() && !isEleven() && !S.elAuto) { S.voice = 'eleven:' + EL_DEFAULT; S.elAuto = true; saveS(); loadVoices(); }
 $('#rateIn').oninput = (e) => { S.rate = +e.target.value; saveS(); $('#rateVal').textContent = S.rate.toFixed(1) + '×'; };
-if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
-loadVoices();
+if ('speechSynthesis' in window) { speechSynthesis.onvoiceschanged = loadVoices; speechSynthesis.addEventListener?.('voiceschanged', loadVoices); }
+loadVoices(); pollVoices();
+$('#allEnIn').checked = !!S.allEn; $('#allEnIn').onchange = (e) => { S.allEn = e.target.checked; saveS(); loadVoices(); };
 
 addEventListener('keydown', (e) => {
   if (e.target.matches('input[type=text],textarea,select')) return;
