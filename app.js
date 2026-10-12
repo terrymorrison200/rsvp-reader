@@ -4,13 +4,14 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 /* ---------------- IndexedDB ---------------- */
 const db = await new Promise((res, rej) => {
-  const r = indexedDB.open('swiftread', 3);
+  const r = indexedDB.open('swiftread', 4);
   r.onupgradeneeded = () => {
     const d = r.result; const has = (n) => d.objectStoreNames.contains(n);
     if (!has('docs')) d.createObjectStore('docs', { keyPath: 'id' });
     if (!has('meta')) d.createObjectStore('meta', { keyPath: 'id' });
     if (!has('highlights')) { const h = d.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true }); h.createIndex('doc', 'docId'); }
     if (!has('journals')) d.createObjectStore('journals', { keyPath: 'id' });
+    if (!has('jentries')) d.createObjectStore('jentries', { keyPath: 'id' });
     if (!has('outbox')) d.createObjectStore('outbox', { keyPath: 'n', autoIncrement: true });
   };
   r.onsuccess = () => res(r.result);
@@ -588,17 +589,32 @@ const JN = { data: null };
 async function loadJournals() { JN.data = (await idb.get('journals', 'current'))?.data || null; renderJournalEntry(); }
 function renderJournalEntry() { const d = JN.data; $('#jnConnect').style.display = d ? 'none' : ''; $('#jnReady').style.display = d ? '' : 'none'; if (d) $('#jnBtnSub').textContent = `${d.entries.length} entries · ${d.packets.length} packets`; }
 async function importJournals(file) {
+  showLoading('Importing journals…');
   try {
-    const j = JSON.parse(await file.text());
-    if (j.version !== 1 || !Array.isArray(j.entries) || !Array.isArray(j.packets || [])) throw new UserErr('That isn’t a Swift Read journals file (version 1).');
-    j.packets ||= []; j.entries = j.entries.filter((e) => e && e.id && e.text).sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    await idb.put('journals', { id: 'current', data: j, imported: Date.now() });
-    const first = !JN.data; JN.data = j; renderJournalEntry(); renderJournals(); toast(`${first ? 'Connected' : 'Updated'} · ${j.entries.length} entries`); if (first && !$('#jnView').classList.contains('active')) openJournals();
-  } catch (e) { toast(e instanceof UserErr ? e.message : 'Couldn’t read that journals file.'); }
+    let j; try { j = JSON.parse(await file.text()); } catch { throw new UserErr('That file isn’t valid JSON.'); }
+    if (!j || j.version !== 1 || !Array.isArray(j.entries)) throw new UserErr('That isn’t a Swift Read journals file (version 1).');
+    // one transaction: clear + store each entry with its text; keep a light index (no text) for the browser
+    const idx = []; const seen = new Set();
+    await new Promise((res, rej) => {
+      const t = db.transaction(['jentries', 'journals'], 'readwrite'); const st = t.objectStore('jentries'); st.clear();
+      for (const en of j.entries) {
+        if (!en || !en.id || typeof en.text !== 'string' || seen.has(en.id)) continue; seen.add(en.id);
+        const date = /^\d{4}-\d{2}/.test(en.date || '') ? en.date : '';
+        st.put({ id: String(en.id), date, title: en.title || '', topics: en.topics || [], words: en.words || en.text.split(/\s+/).length, text: en.text });
+        idx.push({ id: String(en.id), date, title: en.title || '', words: en.words || 0 });
+      }
+      idx.sort((x, y) => (x.date || '9999').localeCompare(y.date || '9999'));
+      t.objectStore('journals').put({ id: 'current', data: { version: 1, generated: j.generated || '', packets: Array.isArray(j.packets) ? j.packets : [], entries: idx }, imported: Date.now() });
+      t.oncomplete = res; t.onerror = () => rej(t.error);
+    });
+    hideLoading();
+    const first = !JN.data; await loadJournals(); renderJournals(); toast(`${first ? 'Connected' : 'Updated'} · ${idx.length.toLocaleString()} entries`);
+    if (first && !$('#jnView').classList.contains('active')) openJournals();
+  } catch (e) { console.error(e); hideLoading(); toast(e instanceof UserErr ? e.message : 'Couldn’t read that journals file.'); }
 }
 async function removeJournals() {
   if (!confirm('Remove all journals from this device? (Your original file is not affected.)')) return;
-  await idb.del('journals', 'current');
+  await idb.del('journals', 'current'); await tx('jentries', 'readwrite', (s) => s.clear());
   for (const m of await idb.all('meta')) if (m.source === 'journal') { await idb.del('docs', m.id); await idb.del('meta', m.id); delete HIST[m.id]; }
   saveH(); JN.data = null; renderJournalEntry(); renderJournals(); toast('Journals removed from this device');
 }
@@ -608,19 +624,20 @@ function renderJournals() {
   if (!d) { box.innerHTML = '<p class="empty">No journals on this device. Use “Connect journals” on the home screen.</p>'; return; }
   const byId = Object.fromEntries(d.entries.map((e) => [e.id, e]));
   let h = d.packets.length ? '<h2 class="section-title">Packets</h2>' + d.packets.map((p, i) => `<button class="talk jn-p" data-p="${i}"><div class="gi"><div class="gt">${esc(p.title)}</div><div class="ga">${esc(p.teaser || '')}</div><div class="gd">${p.kind === 'story' ? 'Story' : 'Theme'} · ${(p.entryIds || []).filter((x) => byId[x]).length} entries · ${fmtMin((p.entryIds || []).reduce((a, x) => a + (byId[x]?.words || 0), 0))}</div></div></button>`).join('') : '';
-  const tree = {}; d.entries.forEach((e, i) => { const [y, m] = String(e.date || '0000-00').split('-'); ((tree[y] ||= {})[m] ||= []).push(i); });
+  const tree = {}, undated = []; d.entries.forEach((e, i) => { if (!e.date) return undated.push(i); const [y, m] = e.date.split('-'); ((tree[y] ||= {})[m] ||= []).push(i); });
+  const rows = (list) => list.map((i) => { const e = d.entries[i]; return `<button class="jn-e" data-e="${i}"><span class="jd">${esc(e.date || '—')}</span><span class="jt">${esc(e.title || 'Untitled')}</span><span class="jw">${fmtMin(e.words)}</span></button>`; }).join('');
   h += '<h2 class="section-title">By date</h2>';
   for (const y of Object.keys(tree).sort().reverse()) {
-    h += `<details class="jn-y"><summary>${esc(y)} <span>${Object.values(tree[y]).flat().length}</span></summary>`;
-    for (const m of Object.keys(tree[y]).sort().reverse()) {
-      const name = new Date(+y, +m - 1, 1).toLocaleString(undefined, { month: 'long' });
-      h += `<details class="jn-m"><summary>${esc(name)} <span>${tree[y][m].length}</span></summary>` + tree[y][m].map((i) => { const e = d.entries[i]; return `<button class="jn-e" data-e="${i}"><span class="jd">${esc(e.date || '')}</span><span class="jt">${esc(e.title || 'Untitled')}</span><span class="jw">${fmtMin(e.words || e.text.split(/\s+/).length)}</span></button>`; }).join('') + '</details>';
-    }
+    h += `<details class="jn-y"><summary>${esc(y)} <span>${Object.values(tree[y]).reduce((a, l) => a + l.length, 0)}</span></summary>`;
+    for (const m of Object.keys(tree[y]).sort().reverse()) h += `<details class="jn-m" data-y="${y}" data-m="${m}"><summary>${esc(new Date(+y, +m - 1, 1).toLocaleString(undefined, { month: 'long' }))} <span>${tree[y][m].length}</span></summary></details>`;
     h += '</details>';
   }
+  if (undated.length) h += `<details class="jn-y"><summary>Undated <span>${undated.length}</span></summary><details class="jn-m" data-undated="1" open><summary>All undated <span>${undated.length}</span></summary></details></details>`;
   box.innerHTML = h;
-  $$('#jnBody .jn-p').forEach((b) => (b.onclick = () => { const p = d.packets[+b.dataset.p]; const es = (p.entryIds || []).map((x) => byId[x]).filter(Boolean); openJournalDoc('jp:' + p.id, p.title, es); }));
-  $$('#jnBody .jn-e').forEach((b) => (b.onclick = () => { const e = d.entries[+b.dataset.e]; openJournalDoc('je:' + e.id, e.title || e.date, [e]); }));
+  const fill = (dm) => { if (dm.dataset.done) return; dm.dataset.done = 1; dm.insertAdjacentHTML('beforeend', rows(dm.dataset.undated ? undated : tree[dm.dataset.y][dm.dataset.m])); dm.querySelectorAll('.jn-e').forEach((b) => (b.onclick = () => openEntry(+b.dataset.e))); };
+  $$('#jnBody .jn-m').forEach((dm) => { dm.addEventListener('toggle', () => dm.open && fill(dm)); if (dm.open) fill(dm); });
+  const openEntry = async (i) => { const ix = d.entries[i]; const en = await idb.get('jentries', ix.id); if (en) openJournalDoc('je:' + en.id, en.title || en.date || 'Journal entry', [en]); };
+  $$('#jnBody .jn-p').forEach((b) => (b.onclick = () => { const p = d.packets[+b.dataset.p]; Promise.all((p.entryIds || []).map((x) => idb.get('jentries', String(x)))).then((es) => openJournalDoc('jp:' + p.id, p.title, es.filter(Boolean))); }));
 }
 async function openJournalDoc(sid, title, entries) {
   const ex = (await idb.all('meta')).find((m) => m.source === 'journal' && m.sourceId === sid);
@@ -1018,4 +1035,4 @@ applySettings();
 await document.fonts.ready.catch(() => {});
 renderLibrary(); loadChurch(); loadSuggestions(); loadJournals(); flushSync();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__sr = { R, S, idb, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+window.__sr = { R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
