@@ -1,4 +1,4 @@
-const APP_VER = 'v15';
+const APP_VER = 'v16';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -153,30 +153,39 @@ async function importFile(file) {
 }
 class UserErr extends Error {}
 /* Gutenberg plain text: strip boilerplate, find chapter headings */
+// Chapter index for plain-text books: CHAPTER/BOOK/PART/VOLUME/… headings (numbers, Roman numerals or number words),
+// fallback to bare Roman-numeral headings. Headings with almost no text before the next one (a contents list) are dropped.
+const NUMW = 'ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE|FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|LAST';
+function findChapters(paras) {
+  const rx = new RegExp(`^(BOOK|CHAPTER|VOLUME|PART|STAVE|CANTO|ACT|EPILOGUE|PROLOGUE)\\b\\.?(\\s+([IVXLCDM]+|\\d+|${NUMW})\\b)?`, 'i');
+  const short = (p) => p.split('\n').length <= 3 && p.length < 150;
+  const kw = (p) => { const m = p.trim().match(rx); return !!m && (!!m[2] || /^(EPILOGUE|PROLOGUE)/i.test(m[1]) || /^[A-Z\s.\-—:'’,]+$/.test(p.trim())); };
+  const roman = (p) => /^([IVXLCDM]+|\d+)\.?(\s+[A-Z][^\n]{0,80})?$/.test(p.trim()) && !/^I\.?$/.test(p.trim()) || /^I\.?$/.test(p.trim());
+  const pick = (test) => { const c = []; paras.forEach((p, i) => { const q = p.replace(/^\[|\]$/g, '').trim(); if (short(q) && test(q)) c.push(i); }); return c; };
+  let cand = pick(kw); if (cand.length < 3) cand = pick(roman);
+  const textLen = (a, b) => { let n = 0; for (let k = a + 1; k < b; k++) n += paras[k].length; return n; };
+  // keep a heading if real text follows before the next heading; a heading directly followed by another (VOLUME → CHAPTER) is kept only if the chain ends in text
+  const kept = cand.filter((pi, k) => { for (let j = k; j < cand.length; j++) { const nx = j + 1 < cand.length ? cand[j + 1] : paras.length; if (nx - cand[j] > 4 || textLen(cand[j], nx) > 600) return j - k <= 2; } return false; });
+  // a contents list made of separate paragraphs repeats headings that appear again later: keep the later one
+  const key = (pi) => paras[pi].toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const lastAt = {}; kept.forEach((pi) => (lastAt[key(pi)] = pi));
+  const kept2 = kept.filter((pi) => lastAt[key(pi)] === pi || pi > paras.length * 0.15);
+  kept.length = 0; kept.push(...kept2);
+  const hTitle = (p) => p.split('\n').map((l) => l.trim()).filter(Boolean).join(' — ').replace(/^\[|\]$/g, '').replace(/\s+/g, ' ').replace(/\.$/, '');
+  const chapters = kept.map((pi) => ({ title: hTitle(paras[pi]), paraIdx: pi }));
+  return { chapters, startPara: chapters.length >= 2 ? chapters[0].paraIdx : 0 };
+}
 function gutenbergText(raw) {
   raw = raw.replace(/\r/g, '').replace(/^\uFEFF/, '');
   const titleM = raw.match(/^Title:\s*(.+)$/m);
   const s = raw.search(/\*\*\* ?START OF (THE|THIS) PROJECT GUTENBERG[^\n]*/i);
   let body = s >= 0 ? raw.slice(raw.indexOf('\n', s) + 1) : raw;
   const e = body.search(/\*\*\* ?END OF (THE|THIS) PROJECT GUTENBERG/i); if (e >= 0) body = body.slice(0, e);
-  body = body.replace(/^\s*\[Illustration[^\]]*\]\s*$/gm, '');
+  // drop [Illustration …] blocks but keep a chapter heading printed inside one (e.g. Pride and Prejudice)
+  body = body.replace(/\[Illustration[^\]]{0,600}\]/g, (m) => { const h = m.match(/^\s*((CHAPTER|BOOK|PART|VOLUME)\b[^\]\n]*)/im); return h ? '\n\n' + h[1].trim() + '\n\n' : ''; });
   const paras = body.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
-  const rx = /^(BOOK|CHAPTER|VOLUME|PART|STAVE|CANTO|ACT)\b[\s.]*(?:[IVXLCDM]+|\d+|THE\b|[A-Z]+)/i;
-  const isH = paras.map((p) => p.split('\n').length <= 3 && p.length < 160 && rx.test(p) && !/[a-z]{3,}.*[.,;]$/.test(p) && !/[a-z]{4,}/.test(p.split('\n')[0].replace(rx, '')) );
-  const hTitle = (p) => p.split('\n').map((l) => l.trim()).reduce((a, l) => (!a ? l : /^(\S+\s+)?([IVXLCDM]+|\d+)\.?$/i.test(a) ? a + ' — ' + l : a + ' ' + l), '');
-  const chapters = [];
-  for (let i = 0; i < paras.length; i++) {
-    if (!isH[i]) continue;
-    let a = i, b = i; while (a > 0 && isH[a - 1]) a--; while (b < paras.length - 1 && isH[b + 1]) b++;
-    if (b - a >= 4) continue; // table of contents run
-    chapters.push({ title: hTitle(paras[i]), paraIdx: i });
-  }
-  // a contents list repeats headings that appear again later: keep only the last occurrence
-  const key = (t) => t.toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '');
-  const last = {}; chapters.forEach((c, k) => (last[key(c.title)] = k));
-  const kept = chapters.filter((c, k) => last[key(c.title)] === k || c.paraIdx > paras.length * 0.1);
-  chapters.length = 0; chapters.push(...kept);
-  return { title: titleM ? titleM[1].trim() : '', text: paras.join('\n\n'), chapters };
+  const { chapters, startPara } = findChapters(paras);
+  return { title: titleM ? titleM[1].trim() : '', text: paras.join('\n\n'), chapters, startPara };
 }
 async function parsePdf(file) {
   const pdfjs = await import('./vendor/pdf.min.mjs');
@@ -254,8 +263,9 @@ async function addDoc(doc) {
   const words = tokenize(doc.text);
   if (!words.length) throw new Error('no readable text found');
   const chapters = (doc.chapters || []).map((c) => ({ title: c.title, word: Math.max(0, words.findIndex((w) => w.p >= c.paraIdx)) }));
-  await idb.put('docs', { id, text: doc.text, chapters });
-  await idb.put('meta', { id, title: doc.title, author: doc.author || '', source: doc.source || 'local', sourceId: doc.sourceId || '', audio: doc.audio || '', type: doc.type, count: words.length, pos: 0, added: Date.now(), opened: Date.now() });
+  const start = doc.startPara ? Math.max(0, words.findIndex((w) => w.p >= doc.startPara)) : 0; // skip front matter / contents
+  await idb.put('docs', { id, text: doc.text, chapters, start, cv: 2 });
+  await idb.put('meta', { id, title: doc.title, author: doc.author || '', source: doc.source || 'local', sourceId: doc.sourceId || '', audio: doc.audio || '', type: doc.type, count: words.length, pos: start, added: Date.now(), opened: Date.now() });
   return id;
 }
 
@@ -708,6 +718,11 @@ async function openDoc(id) {
   if (!doc) return;
   const cur = $('.view.active')?.id; if (cur && cur !== 'readerView') R.from = cur;
   R.id = id; R.meta = meta; R.words = tokenize(doc.text); R.chapters = doc.chapters || [];
+  if (doc.cv !== 2 && meta.type === 'txt') { // older import: rebuild the chapter index with the current detector
+    const paras = doc.text.split(/\n\s*\n+/); const { chapters, startPara } = findChapters(paras.map((p) => p.trim()).filter(Boolean));
+    if (chapters.length >= 2) { R.chapters = chapters.map((c) => ({ title: c.title, word: Math.max(0, R.words.findIndex((w) => w.p >= c.paraIdx)) })); doc.chapters = R.chapters; doc.start = Math.max(0, R.words.findIndex((w) => w.p >= startPara)); if (!meta.pos) meta.pos = doc.start; }
+    doc.cv = 2; idb.put('docs', doc);
+  }
   R.sentStart = []; R.words.forEach((w, i) => { if (!i || w.s !== R.words[i - 1].s) R.sentStart[w.s] = i; });
   R.i = Math.min(meta.pos || 0, R.words.length - 1);
   if (R.i >= R.words.length - 1) R.i = 0;
@@ -736,11 +751,21 @@ function render() {
   $('#word').style.setProperty('--orp-half', half + 'px');
   updateProgress();
 }
+const curChap = (i = R.i) => { let k = -1; for (let j = 0; j < (R.chapters || []).length; j++) { if (R.chapters[j].word <= i) k = j; else break; } return k; };
+const fmtDur = (words) => { const m = Math.max(1, Math.round((words / S.wpm) * (S.smart ? 1.12 : 1))); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+const chapLabel = (k) => { const t = R.chapters[k].title.replace(/^(chapter|ch\.?)\s+([\dIVXLCDM]+)\.?\s*(—\s*)?/i, 'Ch $2 · '); return t.replace(/ · $/, ''); };
+function updateChapLine(i = R.i, scrub = false) {
+  const el = $('#chapLine'); if (!el) return; const n = R.words.length; const pct = Math.round((n > 1 ? i / (n - 1) : 0) * 100);
+  const k = curChap(i); if (k < 0 || R.chapters.length < 2) { el.textContent = ''; return; }
+  const end = R.chapters[k + 1]?.word ?? n;
+  el.textContent = scrub ? `${chapLabel(k)} · ${pct}%` : `${chapLabel(k)} · ${pct}% · ${fmtDur(end - i)} left in chapter · ${fmtDur(n - i)} in book`;
+}
+function jumpChap(d) { const k = curChap(); let t = k + d; if (d < 0 && k >= 0 && R.i - R.chapters[k].word > 30) t = k; t = Math.max(0, Math.min(R.chapters.length - 1, t)); if (R.chapters[t]) { seek(R.chapters[t].word); toast(chapLabel(t)); } }
 function updateProgress() {
   const n = R.words.length; const pct = n > 1 ? R.i / (n - 1) : 0;
   const pr = $('#progress'); if (!pr.matches(':active')) pr.value = Math.round(pct * 1000);
   pr.style.setProperty('--fill', pct * 100 + '%');
-  $('#posLabel').textContent = Math.round(pct * 100) + '%';
+  $('#posLabel').textContent = Math.round(pct * 100) + '%'; updateChapLine();
   const secs = Math.round(((n - R.i) / S.wpm) * 60 * (S.smart ? 1.12 : 1));
   const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
   $('#remainLabel').textContent = (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
@@ -886,7 +911,9 @@ function loadVoices() {
   if (elReady()) {
     let el = EL.voices.length ? [...EL.voices] : [{ voice_id: EL_DEFAULT, name: 'Sarah' }];
     // keep the user's saved voice selectable even before /voices has loaded (or if it fails)
-    if (isEleven() && !EL.voices.length && !el.some((v) => 'eleven:' + v.voice_id === S.voice)) el.unshift({ voice_id: elVoice(), name: S.voiceName || 'Saved voice' });
+    if (String(S.voice).startsWith('eleven:') && !EL.voices.length && !el.some((v) => 'eleven:' + v.voice_id === S.voice)) el.unshift({ voice_id: elVoice(), name: S.voiceName || 'Saved voice' });
+    if (EL.gOk || isGoogle()) html += `<optgroup label="★ Google (natural)">${GVOICES.map(([id, n]) => opt('gtts:' + id, '★ ' + n + ' — Google')).join('')}</optgroup>`;
+    gProbe();
     html += `<optgroup label="★ ElevenLabs (natural)">${el.map((v) => opt('eleven:' + v.voice_id, '★ ' + v.name + ' — ElevenLabs')).join('')}</optgroup>`;
     if (!EL.voices.length && !EL.loading) elLoadVoices();
   } else html += `<option value="" disabled>ElevenLabs: not set up on this device (add relay below)</option>`;
@@ -961,8 +988,13 @@ const voiceQ = (v) => { const t = v.name + ' ' + v.voiceURI; return /premium/i.t
 let vPoll = 0; function pollVoices() { const id = ++vPoll; let n = -1; [150, 500, 1000, 1800, 3000].forEach((ms) => setTimeout(() => { if (id !== vPoll || !('speechSynthesis' in window)) return; const c = speechSynthesis.getVoices().length; if (c !== n) { n = c; loadVoices(); } }, ms)); }
 const relayBase = () => (S.relayUrl || '').trim().replace(/\/+$/, '');
 const elReady = () => !!(relayBase() && S.relayToken);
-const isEleven = () => elReady() && !EL.off && String(S.voice).startsWith('eleven:');
-const elVoice = () => String(S.voice).slice(7) || EL_DEFAULT;
+// "cloud voice" = ElevenLabs (eleven:<id>) or Google Cloud TTS (gtts:<name>), both via the relay
+const isEleven = () => elReady() && !EL.off && /^(eleven|gtts):/.test(String(S.voice));
+const isGoogle = () => String(S.voice).startsWith('gtts:');
+// Best few en-US Google voices. Neural2 = exact word sync; Chirp3-HD = most natural, timings estimated.
+const GVOICES = [['en-US-Neural2-J', 'Neural2 J (male)'], ['en-US-Neural2-F', 'Neural2 F (female)'], ['en-US-Neural2-D', 'Neural2 D (male)'], ['en-US-Neural2-H', 'Neural2 H (female)'], ['en-US-Chirp3-HD-Charon', 'Chirp 3 HD Charon (male)'], ['en-US-Chirp3-HD-Aoede', 'Chirp 3 HD Aoede (female)']];
+async function gProbe() { if (EL.gProbed) return; EL.gProbed = true; try { const r = await relayFetch('/gtts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); EL.gOk = r.status === 400; if (EL.gOk) loadVoices(); } catch {} } // empty request: free
+const elVoice = () => String(S.voice).replace(/^(eleven|gtts):/, '') || EL_DEFAULT;
 const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
 async function elLoadVoices() {
   EL.loading = true;
@@ -971,7 +1003,7 @@ async function elLoadVoices() {
     const j = await r.json(); const rank = (x) => (x.category === 'premade' ? 0 : x.category === 'professional' ? 1 : 2);
     const isUS = (x) => /^(american|us|u\.s\.|united states)/i.test(((x.labels || {}).accent || '').trim());
     const v = (j.voices || []).filter(isUS).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).map(({ voice_id, name }) => ({ voice_id, name: name.split(' - ')[0] + (name.includes(' - ') ? ' (' + name.split(' - ')[1] + ')' : '') }));
-    if (v.length) { EL.voices = v; if (isEleven() && !v.some((x) => 'eleven:' + x.voice_id === S.voice)) { S.voice = 'eleven:' + v[0].voice_id; S.voiceName = v[0].name; saveS(); } loadVoices(); }
+    if (v.length) { EL.voices = v; if (String(S.voice).startsWith('eleven:') && !v.some((x) => 'eleven:' + x.voice_id === S.voice)) { S.voice = 'eleven:' + v[0].voice_id; S.voiceName = v[0].name; saveS(); } loadVoices(); }
   } catch (e) { console.warn('voices', e); toast('ElevenLabs voices: ' + (e.message || e)); } finally { EL.loading = false; }
 }
 const elUse = () => JSON.parse(localStorage.getItem('sr.elChars') || '{"total":0,"days":{}}');
@@ -1013,12 +1045,12 @@ async function elTTS(text, voice, k, extra = {}) {
   if (EL.pending.has(k)) return EL.pending.get(k);
   const ctl = new AbortController(); EL.ctls.add(ctl);
   const p = (async () => {
-    const r = await relayFetch('/tts', { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: voice }) });
+    const g = isGoogle(); const r = await relayFetch(g ? '/gtts' : '/tts', { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(g ? { text, voice } : { text, voice_id: voice }) });
     if (r.headers.get('X-SR-Budget-Remaining') != null) EL.remaining = r.headers.get('X-SR-Budget-Remaining');
     if (!r.ok) throw await elErr(r);
     const j = await r.json(); elCount(text.length);
     const bin = Uint8Array.from(atob(j.audio_base64), (c) => c.charCodeAt(0));
-    const rec = { k, voice, audio: new Blob([bin], { type: 'audio/mpeg' }), al: j.alignment || j.normalized_alignment, at: Date.now(), ...extra };
+    const rec = { k, voice, audio: new Blob([bin], { type: 'audio/mpeg' }), al: j.alignment || j.normalized_alignment, est: !!j.estimated, at: Date.now(), ...extra };
     await idb.put('tts', rec).catch((e) => console.warn('tts cache', e));
     return rec;
   })();
@@ -1035,7 +1067,7 @@ async function elGet(ci, prefetch = false) {
 const elRate = () => { const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
 function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
 // Out of credits: say so once, then carry on with the device voice.
-function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the iPhone voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
+function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the device voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
 async function elFrom(i) {
   const gen = ++EL.gen; const chunks = elChunks(); const ci = chunks.findIndex(([a, b]) => i >= a && i < b); if (ci < 0) return;
   $('#tapHint').textContent = 'Loading voice…';
@@ -1044,6 +1076,7 @@ async function elFrom(i) {
   EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
   await new Promise((r) => (EA.readyState >= 1 ? r() : EA.addEventListener('loadedmetadata', r, { once: true })));
+  if (rec.est && EA.duration && rec.end) { const f = EA.duration / rec.end; rec.t = rec.t.map((x) => x * f); rec.end = EA.duration; } // estimated (Chirp 3) timings -> real length
   EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
   let pre = false;
   EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos(); elFrom(rec.w1); };
@@ -1159,11 +1192,14 @@ $('#hlListBtn').onclick = showHighlights;
 $('#highlightBtn').onclick = saveHighlight;
 $('#narrateBtn').onclick = () => setNarr(!R.narr); $('#audioBtn').onclick = () => setAudioMode(!R.audio);
 $('#playBtn').onclick = toggle;
-$('#prevSentBtn').onclick = prevSentence; $('#nextSentBtn').onclick = nextSentence;
+const longPress = (el, short, long) => { let t = 0, fired = false; const down = () => { fired = false; t = setTimeout(() => { fired = true; navigator.vibrate?.(15); long(); }, 450); };
+  const up = () => clearTimeout(t); el.addEventListener('pointerdown', down); ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => el.addEventListener(ev, up));
+  el.addEventListener('contextmenu', (e) => e.preventDefault()); el.onclick = (e) => { if (fired) { e.preventDefault(); return; } short(); }; };
+longPress($('#prevSentBtn'), prevSentence, () => jumpChap(-1)); longPress($('#nextSentBtn'), nextSentence, () => jumpChap(1));
 $('#prevWordBtn').onclick = () => seek(R.i - 1, false); $('#nextWordBtn').onclick = () => seek(R.i + 1, false);
 $('#slowerBtn').onclick = () => setWpm(S.wpm - 25); $('#fasterBtn').onclick = () => setWpm(S.wpm + 25);
 $('#wpm').oninput = (e) => setWpm(+e.target.value);
-$('#progress').oninput = (e) => { const was = R.playing; if (was) pause(); R.i = Math.round((e.target.value / 1000) * (R.words.length - 1)); render(); showContext(); };
+$('#progress').oninput = (e) => { const was = R.playing; if (was) pause(); R.i = Math.round((e.target.value / 1000) * (R.words.length - 1)); render(); showContext(); updateChapLine(R.i, true); };
 $('#progress').onchange = () => savePos(true);
 $('#stage').addEventListener('click', (e) => {
   const w = e.target.closest('#contextBox .w'); if (w) { seek(+w.dataset.i, false); return; }
@@ -1180,7 +1216,7 @@ $('#sizeIn').oninput = (e) => { S.size = +e.target.value; saveS(); applySettings
 $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySettings(); };
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
-const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — ElevenLabs$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
+const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — (ElevenLabs|Google)$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
 $('#voiceSel').onchange = voicePick; $('#voiceSel').oninput = voicePick;
 $('#voicePreview').onclick = async () => {
   const b = $('#voicePreview'); const text = 'Hi, I’ll read to you.';

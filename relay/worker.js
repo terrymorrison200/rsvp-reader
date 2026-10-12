@@ -51,6 +51,7 @@ export default {
       ctx.waitUntil(new Response(b).text().then((t) => env.BUDGET.put(dk, t, { expirationTtl: DEDUPE_SECONDS })));
       return new Response(a, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
     }
+    if (url.pathname === '/gtts' && req.method === 'POST') return gtts(req, env, ctx);
     return err(404, 'not found');
   },
 };
@@ -73,4 +74,49 @@ async function gutenberg(url, ctx) {
     return new Response(a, { headers: cors({ 'Content-Type': ct, 'X-Cache': 'MISS' }) });
   }
   return err(502, 'gutenberg fetch failed');
+}
+
+// ---------- Google Cloud TTS (v1beta1, SSML <mark> per word -> word timings) ----------
+// Allowed voices: en-US Neural2 (exact word timings via marks) and Chirp3-HD (marks unsupported -> estimated timings).
+const GVOICE = /^en-US-(Neural2-[A-J]|Chirp3-HD-[A-Za-z]+)$/;
+const xmlEsc = (t) => t.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
+async function gtts(req, env, ctx) {
+  if (!env.SR_TOKEN || req.headers.get('X-SR-Token') !== env.SR_TOKEN) return err(401, 'bad token');
+  if (!env.GOOGLE_TTS_KEY) return err(503, 'Google voices are not set up yet', 'not_configured');
+  let body; try { body = await req.json(); } catch { return err(400, 'bad json'); }
+  const text = String(body.text || '').trim(); const voice = String(body.voice || 'en-US-Neural2-J');
+  if (!text) return err(400, 'no text');
+  if (text.length > 2000) return err(413, 'max 2000 characters per request');
+  if (!GVOICE.test(voice)) return err(400, 'voice not allowed');
+  const words = text.split(/\s+/);
+  const dk = 'g:' + (await sha(voice + '|' + text));
+  const hit = await env.BUDGET.get(dk, 'stream');
+  if (hit) return new Response(hit, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
+  const limit = +(env.GOOGLE_DAILY_CHAR_BUDGET || 60000); const key = 'gchars:' + day();
+  const used = +((await env.BUDGET.get(key)) || 0);
+  if (used + text.length > limit) return err(429, 'daily Google voice budget reached', 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
+  const chirp = /Chirp3/.test(voice);
+  const ssml = '<speak>' + words.map((w, i) => (chirp ? '' : `<mark name="${i}"/>`) + xmlEsc(w)).join(' ') + '</speak>';
+  const r = await fetch('https://texttospeech.googleapis.com/v1beta1/text:synthesize', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.GOOGLE_TTS_KEY },
+    body: JSON.stringify({ input: { ssml }, voice: { languageCode: 'en-US', name: voice }, audioConfig: { audioEncoding: 'MP3' }, ...(chirp ? {} : { enableTimePointing: ['SSML_MARK'] }) }),
+  });
+  if (!r.ok) {
+    const raw = await r.text(); let e = {}; try { e = JSON.parse(raw).error || {}; } catch {}
+    const quota = r.status === 429 || /RESOURCE_EXHAUSTED|quota|billing/i.test((e.status || '') + ' ' + (e.message || ''));
+    return err(quota ? 429 : 502, quota ? 'Google voice quota or billing limit reached' : String(e.message || raw).slice(0, 200), quota ? 'quota_exceeded' : String(e.status || 'upstream_error'));
+  }
+  const j = await r.json(); const audio = j.audioContent || '';
+  // word start times: from marks, or (Chirp3) estimated by character share of the MP3 duration (32 kbps CBR)
+  let st = new Array(words.length).fill(null), est = false;
+  for (const tp of j.timepoints || []) { const i = +tp.markName; if (i >= 0 && i < words.length) st[i] = +tp.timeSeconds || 0; }
+  const dur = (audio.length * 0.75 * 8) / 32000;
+  if (st.some((x) => x == null)) { est = true; const tot = text.length; let c = 0; st = words.map((w) => { const t = (c / tot) * dur; c += w.length + 1; return t; }); }
+  // shape like ElevenLabs alignment: one entry per character, every char of a word starts at the word's time
+  const characters = [], s0 = [], e0 = [];
+  words.forEach((w, i) => { const t = st[i], tn = i + 1 < words.length ? st[i + 1] : dur; if (i) { characters.push(' '); s0.push(t); e0.push(t); } for (const ch of w) { characters.push(ch); s0.push(t); e0.push(tn); } });
+  const out = JSON.stringify({ audio_base64: audio, alignment: { characters, character_start_times_seconds: s0, character_end_times_seconds: e0 }, estimated: est });
+  ctx.waitUntil(env.BUDGET.put(key, String(used + text.length), { expirationTtl: 3 * 86400 }));
+  ctx.waitUntil(env.BUDGET.put(dk, out, { expirationTtl: DEDUPE_SECONDS }));
+  return new Response(out, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
 }

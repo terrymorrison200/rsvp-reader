@@ -116,17 +116,18 @@
     </div>
 
     <footer class="controls fadeable" id="controls">
+      <div class="chap-line" id="chapLine"></div>
       <div class="progress-row">
         <span id="posLabel" class="mono small">0%</span>
         <input type="range" id="progress" min="0" max="1000" value="0" aria-label="Progress">
         <span id="remainLabel" class="mono small">0:00</span>
       </div>
       <div class="transport">
-        <button class="icon-btn" id="prevSentBtn" aria-label="Previous sentence" title="Previous sentence (←)"><svg viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7M20 19l-7-7 7-7"/></svg></button>
+        <button class="icon-btn" id="prevSentBtn" aria-label="Previous sentence (hold: previous chapter)" title="Previous sentence (←) · hold for previous chapter"><svg viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7M20 19l-7-7 7-7"/></svg></button>
         <button class="icon-btn" id="prevWordBtn" aria-label="Previous word" title="Back one word"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
         <button class="play-btn" id="playBtn" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z"/></svg></button>
         <button class="icon-btn" id="nextWordBtn" aria-label="Next word" title="Forward one word"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="icon-btn" id="nextSentBtn" aria-label="Next sentence" title="Next sentence (→)"><svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M4 5l7 7-7 7"/></svg></button>
+        <button class="icon-btn" id="nextSentBtn" aria-label="Next sentence (hold: next chapter)" title="Next sentence (→) · hold for next chapter"><svg viewBox="0 0 24 24"><path d="M13 5l7 7-7 7M4 5l7 7-7 7"/></svg></button>
       </div>
       <div class="speed-row">
         <button class="chip-btn" id="slowerBtn" aria-label="Slower">−</button>
