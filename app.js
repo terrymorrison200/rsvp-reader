@@ -1,4 +1,4 @@
-const APP_VER = 'v10';
+const APP_VER = 'v11';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -865,7 +865,7 @@ const hideContext = () => $('#contextBox').classList.remove('show');
 /* ---------------- Narration ---------------- */
 R.utterGen = 0;
 function loadVoices() {
-  const vs = ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter((v) => /^en[-_]US$/i.test(v.lang)); // US English only const sel = $('#voiceSel');
+  const vs = ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter((v) => /^en[-_]US$/i.test(v.lang)); const sel = $('#voiceSel'); // US English only
   const lang = navigator.language.slice(0, 2);
   const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
