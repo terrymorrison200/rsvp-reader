@@ -4,12 +4,13 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 /* ---------------- IndexedDB ---------------- */
 const db = await new Promise((res, rej) => {
-  const r = indexedDB.open('swiftread', 2);
+  const r = indexedDB.open('swiftread', 3);
   r.onupgradeneeded = () => {
     const d = r.result; const has = (n) => d.objectStoreNames.contains(n);
     if (!has('docs')) d.createObjectStore('docs', { keyPath: 'id' });
     if (!has('meta')) d.createObjectStore('meta', { keyPath: 'id' });
     if (!has('highlights')) { const h = d.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true }); h.createIndex('doc', 'docId'); }
+    if (!has('journals')) d.createObjectStore('journals', { keyPath: 'id' });
     if (!has('outbox')) d.createObjectStore('outbox', { keyPath: 'n', autoIncrement: true });
   };
   r.onsuccess = () => res(r.result);
@@ -413,7 +414,7 @@ async function addGutenberg(b) {
 /* ---------------- Reading history + automatic sync ---------------- */
 const HIST = JSON.parse(localStorage.getItem('sr.history') || '{}');
 const saveH = () => localStorage.setItem('sr.history', JSON.stringify(HIST));
-const docInfo = (m) => ({ docId: m.id, title: m.title, author: m.author || '', source: m.source || 'local', sourceId: m.sourceId || '', total: m.count });
+const docInfo = (m) => m.source === 'journal' ? { docId: m.id, title: '', author: '', source: 'journal', sourceId: '', total: m.count } : ({ docId: m.id, title: m.title, author: m.author || '', source: m.source || 'local', sourceId: m.sourceId || '', total: m.count });
 function histOpen(m) {
   const h = (HIST[m.id] ||= { ...docInfo(m), wordsRead: 0, finished: false, firstOpened: new Date().toISOString(), sessions: [] });
   Object.assign(h, docInfo(m)); h.lastOpened = new Date().toISOString(); saveH();
@@ -433,6 +434,7 @@ function histSession(ms) {
 function histFinished() { const h = HIST[R.id]; if (h && !h.finishedLogged) { h.finished = true; h.finishedLogged = true; h.finishedAt = new Date().toISOString(); saveH(); logEvent('finished', {}); } }
 const isRead = (sourceId) => Object.values(HIST).some((h) => h.sourceId === sourceId && (h.finished || h.pct >= 90));
 async function logEvent(type, data) {
+  if (R.meta?.source === 'journal' && type === 'highlight') data = {}; // never send journal text
   const ev = { type, at: new Date().toISOString(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone, ...(R.meta ? docInfo(R.meta) : {}), ...data };
   try { await idb.put('outbox', ev); } catch {}
   flushSync();
@@ -515,13 +517,15 @@ function renderChurchCard() {
     <div class="cfm-b">${w.chapters.length ? `<button class="btn primary sm" id="cfmRead">Read this week</button>` : ''}<button class="btn sm" id="cfmLesson">Lesson</button></div>
     ${nx && nx !== w ? `<div class="cfm-next">Next: ${esc(nx.dates)} · ${esc(nx.reading)}</div>` : ''}</div>`;
   if (CH.gc) h += `<button class="gc-row" id="gcOpen"><div><div class="cfm-k">General Conference</div><div class="gc-t">${esc(CH.gc.conference.replace(/general conference/i, 'General Conference'))}</div><div class="cfm-r">${CH.gc.talks.length} talks · ${CH.gc.talks.filter((t) => isRead(t.id)).length} read</div></div><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>`;
-  box.innerHTML = h; box.style.display = h ? '' : 'none';
+  box.innerHTML = h; $('#secWeek').style.display = h ? '' : 'none';
   $('#cfmRead') && ($('#cfmRead').onclick = () => loadScripture(w));
   $('#cfmLesson') && ($('#cfmLesson').onclick = () => loadChurchDoc({ uri: w.lessonUri, sourceId: 'cfm-lesson-' + CH.cfm.year + '-' + w.week, title: `Come, Follow Me: ${w.title}`, author: w.dates, source: 'cfm' }));
   $('#gcOpen') && ($('#gcOpen').onclick = openConference);
 }
-function openConference() {
-  showView('gcView'); history.pushState({ v: 'gc' }, '');
+function histSessionFlush() {}
+function openConferenceRefresh() { const y = $('#gcList').parentElement.scrollTop; openConferenceList(); $('#gcList').parentElement.scrollTop = y; }
+function openConference() { showView('gcView'); history.pushState({ v: 'gc' }, ''); openConferenceList(); }
+function openConferenceList() {
   $('#gcTitle').textContent = CH.gc.conference.replace(/general conference/i, 'General Conference');
   $('#gcSrc').href = CH.gc.source;
   let html = '', sess = '';
@@ -571,12 +575,61 @@ async function loadSuggestions() {
     const r = await fetch('suggestions.json?t=' + Math.floor(Date.now() / 3600e3), { cache: 'no-store' }); const list = await r.json();
     if (!Array.isArray(list) || !list.length) return;
     $('#forYou').innerHTML = list.slice(0, 12).map((s, i) => `<button class="feat sug" data-i="${i}">${s.source === 'gutenberg' ? `<img loading="lazy" alt="" src="${cover(s.id)}" onerror="coverErr(this)">` : '<div class="sug-ph">✦</div>'}<span class="ft">${esc(s.title)}</span><span class="fa">${esc(s.author || '')}${s.minutes ? ' · ' + s.minutes + ' min' : ''}</span>${s.why ? `<span class="fn">${esc(s.why)}</span>` : ''}</button>`).join('');
-    $('#forYouWrap').style.display = '';
+    $('#secForYou').style.display = '';
     $$('#forYou .sug').forEach((b) => (b.onclick = () => { const s = list[+b.dataset.i];
       if (s.source === 'gutenberg' && s.id) { openGutenberg(); showBook(+s.id); }
       else if (s.source === 'general-conference' && CH.gc) { const t = CH.gc.talks.find((t) => t.id === s.id); if (t) loadChurchDoc({ uri: t.uri, sourceId: t.id, title: t.title, author: t.speaker, source: 'general-conference', audio: t.audio }); }
       else if (s.url) window.open(s.url, '_blank'); }));
   } catch (e) { console.warn('suggestions', e); }
+}
+
+/* ---------------- My Journals (private: IndexedDB only, never synced) ---------------- */
+const JN = { data: null };
+async function loadJournals() { JN.data = (await idb.get('journals', 'current'))?.data || null; renderJournalEntry(); }
+function renderJournalEntry() { const d = JN.data; $('#jnConnect').style.display = d ? 'none' : ''; $('#jnReady').style.display = d ? '' : 'none'; if (d) $('#jnBtnSub').textContent = `${d.entries.length} entries · ${d.packets.length} packets`; }
+async function importJournals(file) {
+  try {
+    const j = JSON.parse(await file.text());
+    if (j.version !== 1 || !Array.isArray(j.entries) || !Array.isArray(j.packets || [])) throw new UserErr('That isn’t a Swift Read journals file (version 1).');
+    j.packets ||= []; j.entries = j.entries.filter((e) => e && e.id && e.text).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    await idb.put('journals', { id: 'current', data: j, imported: Date.now() });
+    const first = !JN.data; JN.data = j; renderJournalEntry(); renderJournals(); toast(`${first ? 'Connected' : 'Updated'} · ${j.entries.length} entries`); if (first && !$('#jnView').classList.contains('active')) openJournals();
+  } catch (e) { toast(e instanceof UserErr ? e.message : 'Couldn’t read that journals file.'); }
+}
+async function removeJournals() {
+  if (!confirm('Remove all journals from this device? (Your original file is not affected.)')) return;
+  await idb.del('journals', 'current');
+  for (const m of await idb.all('meta')) if (m.source === 'journal') { await idb.del('docs', m.id); await idb.del('meta', m.id); delete HIST[m.id]; }
+  saveH(); JN.data = null; renderJournalEntry(); renderJournals(); toast('Journals removed from this device');
+}
+function openJournals() { showView('jnView'); history.pushState({ v: 'jn' }, ''); renderJournals(); }
+function renderJournals() {
+  const box = $('#jnBody'); if (!box) return; const d = JN.data;
+  if (!d) { box.innerHTML = '<p class="empty">No journals on this device. Use “Connect journals” on the home screen.</p>'; return; }
+  const byId = Object.fromEntries(d.entries.map((e) => [e.id, e]));
+  let h = d.packets.length ? '<h2 class="section-title">Packets</h2>' + d.packets.map((p, i) => `<button class="talk jn-p" data-p="${i}"><div class="gi"><div class="gt">${esc(p.title)}</div><div class="ga">${esc(p.teaser || '')}</div><div class="gd">${p.kind === 'story' ? 'Story' : 'Theme'} · ${(p.entryIds || []).filter((x) => byId[x]).length} entries · ${fmtMin((p.entryIds || []).reduce((a, x) => a + (byId[x]?.words || 0), 0))}</div></div></button>`).join('') : '';
+  const tree = {}; d.entries.forEach((e, i) => { const [y, m] = String(e.date || '0000-00').split('-'); ((tree[y] ||= {})[m] ||= []).push(i); });
+  h += '<h2 class="section-title">By date</h2>';
+  for (const y of Object.keys(tree).sort().reverse()) {
+    h += `<details class="jn-y"><summary>${esc(y)} <span>${Object.values(tree[y]).flat().length}</span></summary>`;
+    for (const m of Object.keys(tree[y]).sort().reverse()) {
+      const name = new Date(+y, +m - 1, 1).toLocaleString(undefined, { month: 'long' });
+      h += `<details class="jn-m"><summary>${esc(name)} <span>${tree[y][m].length}</span></summary>` + tree[y][m].map((i) => { const e = d.entries[i]; return `<button class="jn-e" data-e="${i}"><span class="jd">${esc(e.date || '')}</span><span class="jt">${esc(e.title || 'Untitled')}</span><span class="jw">${fmtMin(e.words || e.text.split(/\s+/).length)}</span></button>`; }).join('') + '</details>';
+    }
+    h += '</details>';
+  }
+  box.innerHTML = h;
+  $$('#jnBody .jn-p').forEach((b) => (b.onclick = () => { const p = d.packets[+b.dataset.p]; const es = (p.entryIds || []).map((x) => byId[x]).filter(Boolean); openJournalDoc('jp:' + p.id, p.title, es); }));
+  $$('#jnBody .jn-e').forEach((b) => (b.onclick = () => { const e = d.entries[+b.dataset.e]; openJournalDoc('je:' + e.id, e.title || e.date, [e]); }));
+}
+async function openJournalDoc(sid, title, entries) {
+  const ex = (await idb.all('meta')).find((m) => m.source === 'journal' && m.sourceId === sid);
+  const paras = [], chapters = [];
+  entries.forEach((e) => { chapters.push({ title: `${e.date || ''} · ${e.title || ''}`, paraIdx: paras.length }); paras.push(`${e.title || ''} — ${e.date || ''}`, ...String(e.text).replace(/\r/g, '').split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean)); });
+  const text = paras.join('\n\n');
+  if (ex) { const doc = await idb.get('docs', ex.id); if (doc && doc.text === text) return openDoc(ex.id); await idb.del('docs', ex.id); await idb.del('meta', ex.id); }
+  const id = await addDoc({ title, author: 'Journal', source: 'journal', sourceId: sid, type: 'jrnl', text, chapters: entries.length > 1 ? chapters : [] });
+  openDoc(id);
 }
 
 /* ---------------- Library ---------------- */
@@ -609,6 +662,7 @@ const R = { id: null, meta: null, words: [], chapters: [], sentStart: [], i: 0, 
 async function openDoc(id) {
   const [doc, meta] = await Promise.all([idb.get('docs', id), idb.get('meta', id)]);
   if (!doc) return;
+  const cur = $('.view.active')?.id; if (cur && cur !== 'readerView') R.from = cur;
   R.id = id; R.meta = meta; R.words = tokenize(doc.text); R.chapters = doc.chapters || [];
   R.sentStart = []; R.words.forEach((w, i) => { if (!i || w.s !== R.words[i - 1].s) R.sentStart[w.s] = i; });
   R.i = Math.min(meta.pos || 0, R.words.length - 1);
@@ -623,7 +677,7 @@ async function openDoc(id) {
 }
 function showView(id) { $$('.view').forEach((v) => v.classList.toggle('active', v.id === id)); }
 async function closeReader() {
-  pause(); await savePos(true); showView('libraryView'); renderLibrary();
+  pause(); histSessionFlush(); await savePos(true); const to = R.from || 'libraryView'; showView(to); renderLibrary(); if (to === 'gcView') openConferenceRefresh(); if (to === 'jnView') renderJournals(); renderChurchCard();
 }
 
 function chunkAt(i) { const n = S.chunk; const out = [R.words[i]]; for (let k = 1; k < n && i + k < R.words.length; k++) { if (R.words[i + k - 1].end >= 2) break; out.push(R.words[i + k]); } return out; }
@@ -893,6 +947,9 @@ addEventListener('drop', (e) => { e.preventDefault(); dragN = 0; $('#dropOverlay
 $('#gutBtn').onclick = openGutenberg;
 $('#gutBack').onclick = () => history.back(); $('#gcBack').onclick = () => history.back();
 $('#exportBtn').onclick = exportLog;
+$('#jnBtn').onclick = openJournals; $('#jnBack').onclick = () => history.back();
+$$('.jnFileIn').forEach((inp) => (inp.onchange = (e) => { const f = e.target.files[0]; if (f) importJournals(f); e.target.value = ''; }));
+$('#jnRemove').onclick = removeJournals;
 $('#syncUrlIn').onchange = (e) => { S.syncUrl = e.target.value.trim(); saveS(); flushSync(); };
 $('#syncKeyIn').onchange = (e) => { S.syncKey = e.target.value.trim(); saveS(); flushSync(); };
 $('#syncNow').onclick = () => { localStorage.removeItem('sr.syncErr'); flushSync(); toast('Syncing…'); };
@@ -906,7 +963,7 @@ $('#statsBtn').onclick = () => { renderStats(); openSheet('statsSheet'); };
 $('#scrim').onclick = closeSheets;
 $$('[data-close]').forEach((b) => (b.onclick = closeSheets));
 $('#backBtn').onclick = () => history.back();
-addEventListener('popstate', () => { if ($('#readerView').classList.contains('active')) closeReader(); else if ($('#gutView').classList.contains('active') || $('#gcView').classList.contains('active')) { closeSheets(); showView('libraryView'); renderLibrary(); } });
+addEventListener('popstate', () => { if ($('#readerView').classList.contains('active')) closeReader(); else if ($('#gutView').classList.contains('active') || $('#gcView').classList.contains('active') || $('#jnView').classList.contains('active')) { closeSheets(); showView('libraryView'); renderLibrary(); } });
 $('#chaptersBtn').onclick = showChapters;
 $('#hlListBtn').onclick = showHighlights;
 $('#highlightBtn').onclick = saveHighlight;
@@ -956,8 +1013,9 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { pau
 addEventListener('resize', () => { applySettings(); });
 
 /* ---------------- Boot ---------------- */
+$$('details.sec').forEach((d, i) => { const k = 'sr.sec.' + (d.id || i); if (localStorage.getItem(k) === '0') d.open = false; d.addEventListener('toggle', () => localStorage.setItem(k, d.open ? '1' : '0')); });
 applySettings();
 await document.fonts.ready.catch(() => {});
-renderLibrary(); loadChurch(); loadSuggestions(); flushSync();
+renderLibrary(); loadChurch(); loadSuggestions(); loadJournals(); flushSync();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__sr = { R, S, idb, HIST, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+window.__sr = { R, S, idb, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook

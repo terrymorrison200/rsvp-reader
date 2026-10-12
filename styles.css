@@ -235,3 +235,31 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 .sug-ph{width:118px;height:172px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;font-size:28px;color:var(--accent);margin-bottom:6px}
 .sync-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
 .small-mute{font-size:12px;color:var(--mute)}
+
+.jn-y,.jn-m{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px}
+.jn-m{margin:6px 10px 10px;background:var(--bg2)}
+.jn-y>summary,.jn-m>summary{padding:14px 16px;font-weight:600;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+.jn-y>summary span,.jn-m>summary span{color:var(--mute);font-weight:400;font-size:13px}
+.jn-e{display:grid;grid-template-columns:auto 1fr auto;gap:10px;width:100%;text-align:left;padding:11px 16px;border-top:1px solid var(--line);font-size:14px}
+.jn-e .jd,.jn-e .jw{color:var(--mute);font-size:12px;align-self:center}
+.jn-e .jt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* calm home sections */
+.import-row{margin-bottom:6px}
+.sec{margin-top:26px}
+.sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mute);font-weight:600;padding:4px 2px 12px}
+.sec>summary::-webkit-details-marker{display:none}
+.sec>summary::after{content:"";width:7px;height:7px;border-right:1.6px solid var(--mute);border-bottom:1.6px solid var(--mute);transform:rotate(45deg);transition:transform .25s var(--ease);margin-right:6px}
+.sec:not([open])>summary::after{transform:rotate(-45deg)}
+.sec .gut-featured{margin-top:0}
+.jn-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.jn-ct{font-family:Literata,Georgia,serif;font-size:19px;margin-bottom:6px}
+.jn-connect p{margin:0 0 14px;color:var(--mute);font-size:14px;line-height:1.45}
+.jn-ready{display:flex;align-items:center;gap:12px}
+.jn-open{flex:1;display:flex;align-items:center;justify-content:space-between;text-align:left}
+.jn-open svg{color:var(--mute)}
+.quiet-link{color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;background:none;border:0;padding:6px 2px}
+.quiet-link.danger{color:var(--mute);font-weight:400}
+.jn-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap;gap:8px}
+.hint.center{text-align:center}
+.lib-main .gut-btn{margin-top:10px}

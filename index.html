@@ -35,13 +35,17 @@
         <label class="btn" id="fileLabel"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Open file<input type="file" id="fileInput" accept=".txt,.md,.markdown,.html,.htm,.pdf,.epub,text/plain,text/html,application/pdf,application/epub+zip" hidden></label>
       </div>
       <button class="btn gut-btn" id="gutBtn"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Browse Gutenberg<span class="gut-sub">75,000 free classics</span></button>
-      <p class="hint">TXT · Markdown · HTML · PDF · EPUB — or drop a file anywhere</p>
-      <div id="forYouWrap" style="display:none"><h2 class="section-title">For you</h2><div class="gut-featured" id="forYou"></div></div>
-      <h2 class="section-title">This week</h2>
-      <div id="churchCard" class="church-card" style="display:none"></div>
-      <h2 class="section-title">Library</h2>
+      
+      <details class="sec" id="secForYou" style="display:none" open><summary>For you</summary><div class="gut-featured" id="forYou"></div></details>
+      <details class="sec" id="secWeek" open><summary>This week</summary><div id="churchCard" class="church-card"></div></details>
+      <details class="sec" id="secJn" open><summary>My Journals</summary>
+        <div class="jn-card" id="jnCard">
+          <div class="jn-connect" id="jnConnect"><div class="jn-ct">Connect journals</div><p>Pick <i>swift-read-journals.json</i> once (Files → Proton Drive). It stays private on this iPhone.</p><label class="btn primary sm">Connect journals<input type="file" class="jnFileIn" accept=".json,application/json" hidden></label></div>
+          <div class="jn-ready" id="jnReady" style="display:none"><button class="jn-open" id="jnBtn"><div><div class="gt">Open journals</div><div class="ga" id="jnBtnSub"></div></div><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button><label class="quiet-link">Update<input type="file" class="jnFileIn" accept=".json,application/json" hidden></label></div>
+        </div></details>
+      <details class="sec" open><summary>Library</summary>
       <ul id="libList" class="lib-list"></ul>
-      <p id="libEmpty" class="empty">Your library is empty. Paste some text or open a file to begin.</p>
+      <p id="libEmpty" class="empty">Your library is empty. Paste some text or open a file to begin.</p></details>
     </main>
   </section>
 
@@ -73,6 +77,20 @@
       <div style="width:44px"></div>
     </header>
     <main class="lib-main"><div id="gcList"></div><p class="hint">Talks load from <a id="gcSrc" href="https://www.churchofjesuschrist.org/study/general-conference" target="_blank" rel="noopener">churchofjesuschrist.org</a> © Intellectual Reserve, Inc.</p></main>
+  </section>
+
+  <!-- JOURNALS (private, IndexedDB only) -->
+  <section id="jnView" class="view">
+    <header class="topbar">
+      <button class="icon-btn" id="jnBack" aria-label="Library"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="doc-title">My Journals</div>
+      <div style="width:44px"></div>
+    </header>
+    <main class="lib-main">
+      <div id="jnBody"></div>
+      <div class="jn-foot"><label class="quiet-link">Update from file<input type="file" class="jnFileIn" accept=".json,application/json" hidden></label><button class="quiet-link danger" id="jnRemove">Remove journals from this device</button></div>
+      <p class="hint center">Private · stored only on this device · never synced (only word counts)</p>
+    </main>
   </section>
 
   <!-- READER -->
