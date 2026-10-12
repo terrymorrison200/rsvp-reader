@@ -877,7 +877,7 @@ function loadVoices() {
   const normLang = (v) => String(v.lang || '').replace('_', '-').toLowerCase();
   const all = 'speechSynthesis' in window ? speechSynthesis.getVoices() : [];
   // US English only (lang en-US / en_US, or a voiceURI like com.apple.voice.premium.en-US.Ava); "Show all English voices" widens it
-  const vs = all.filter((v) => (S.allEn ? /^en\b/.test(normLang(v)) || /[.\-_]en[-_]/i.test(v.voiceURI) : normLang(v) === 'en-us' || /[.]en[-_]US[.]/i.test(v.voiceURI)));
+  const vs = all.filter((v) => (normLang(v) === 'en-us' || /[.]en[-_]US[.]/i.test(v.voiceURI)) && goodVoice(v));
   const sel = $('#voiceSel');
   const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (normLang(b) === 'en-us') - (normLang(a) === 'en-us') || a.name.localeCompare(b.name));
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
@@ -944,6 +944,17 @@ const SILENT_WAV = (() => { const n = 800, b = new Uint8Array(44 + n), d = new D
   w(0, 'RIFF'); d.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 8000, true); d.setUint32(28, 8000, true); d.setUint16(32, 1, true); d.setUint16(34, 8, true); w(36, 'data'); d.setUint32(40, n, true); b.fill(128, 44);
   return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...b)); })();
 function elUnlock() { if (EA._unlocked) return; try { EA.src = SILENT_WAV; const p = EA.play(); if (p) p.then(() => { EA._unlocked = true; }).catch((e) => console.warn('unlock', e)); } catch (e) { console.warn('unlock', e); } }
+// Allow-list of natural US voices: any Premium/Enhanced, the solid Apple defaults, Google US English, Microsoft "Natural".
+// Everything else (novelty voices, Eloquence, robotic Microsoft voices) is hidden.
+const GOOD_US = /^(samantha|ava|evan|zoe|nathan|tom|allison|susan|joelle|noelle|nicky|aaron|alex|siri\b)/i;
+const BAD_US = /^(albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley)\b/i;
+function goodVoice(v) {
+  const n = v.name.replace(/^microsoft\s+/i, ''), u = v.voiceURI || '';
+  if (BAD_US.test(n) || /eloquence|speech\.synthesis\.voice/i.test(u)) return false;
+  if (/premium|enhanced/i.test(v.name + ' ' + u)) return true;
+  if (/^microsoft/i.test(v.name)) return /natural/i.test(v.name);
+  return GOOD_US.test(n) || /^google us english/i.test(v.name);
+}
 // 3 = Premium, 2 = Enhanced, 1 = other good (Siri/neural/natural), 0 = rest
 const voiceQ = (v) => { const t = v.name + ' ' + v.voiceURI; return /premium/i.test(t) ? 3 : /enhanced/i.test(t) ? 2 : /neural|siri|natural/i.test(t) ? 1 : 0; };
 // iOS fills getVoices() late and doesn't always fire voiceschanged: re-poll for ~3 s
@@ -1191,7 +1202,7 @@ if (elReady() && !isEleven() && !S.elAuto) { S.voice = 'eleven:' + EL_DEFAULT; S
 $('#rateIn').oninput = (e) => { S.rate = +e.target.value; saveS(); $('#rateVal').textContent = S.rate.toFixed(1) + '×'; };
 if ('speechSynthesis' in window) { speechSynthesis.onvoiceschanged = loadVoices; speechSynthesis.addEventListener?.('voiceschanged', loadVoices); }
 loadVoices(); pollVoices();
-$('#allEnIn').checked = !!S.allEn; $('#allEnIn').onchange = (e) => { S.allEn = e.target.checked; saveS(); loadVoices(); };
+
 
 addEventListener('keydown', (e) => {
   if (e.target.matches('input[type=text],textarea,select')) return;
