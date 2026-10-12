@@ -13,3 +13,6 @@ id = "930a6ec225ed4ebb840aedaec5971be0"   # from: npx wrangler kv namespace crea
 # Secrets are set with `wrangler secret put` — never written here:
 #   SR_TOKEN        shared token the app sends as X-SR-Token
 #   ELEVENLABS_KEY  ElevenLabs API key
+
+[observability]
+enabled = true
