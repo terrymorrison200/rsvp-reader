@@ -263,11 +263,14 @@ const GX = 'https://gutendex.com/books/';
 // gutenberg.org files have no CORS headers -> go through public CORS proxies, trying mirrors & proxies in turn
 const PROXIES = [
   (u) => 'https://cors.eu.org/' + u,
-  (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  (u) => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
   (u) => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  (u) => 'https://corsproxy.org/?' + encodeURIComponent(u),
   (u) => 'https://api.cors.lol/?url=' + encodeURIComponent(u),
-  (u) => 'https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(u),
 ];
+// bundled genre snapshots (Gutendex topic queries can take 80s+ or 503) — shown instantly, live data used for "more"
+let GENRES = {}; const genreP = fetch('genres.json').then((r) => r.json()).then((j) => { GENRES = j.topics || {}; }).catch(() => {});
 const FEATURED = [
   { id: 135, title: 'Les Misérables', author: 'Victor Hugo', note: 'Hapgood translation · unabridged' },
   { id: 1342, title: 'Pride and Prejudice', author: 'Jane Austen' },
@@ -292,18 +295,20 @@ function openGutenberg() {
     $('#gutTopics').innerHTML = TOPICS.map((t) => `<button class="chip${t === G.topic ? ' on' : ''}" data-t="${t}">${t}</button>`).join('');
     $$('#gutTopics .chip').forEach((b) => (b.onclick = () => { G.topic = b.dataset.t; G.q = ''; $('#gutSearch').value = ''; $$('#gutTopics .chip').forEach((x) => x.classList.toggle('on', x === b)); gutLoad(true); }));
   }
-  if (!$('#gutList').children.length) storyP.finally(() => gutLoad(true));
+  if (!$('#gutList').children.length) Promise.allSettled([storyP, genreP]).then(() => gutLoad(true));
 }
 function renderFeatured() {
   $('#gutFeatured').innerHTML = FEATURED.map((f) => `<button class="feat" data-id="${f.id}"><img loading="lazy" alt="" src="${cover(f.id)}" onerror="coverErr(this)"><span class="ft">${esc(f.title)}</span><span class="fa">${esc(f.author)}</span>${f.note ? `<span class="fn">${esc(f.note)}</span>` : ''}</button>`).join('');
   $$('#gutFeatured .feat').forEach((b) => (b.onclick = () => showBook(+b.dataset.id)));
 }
 async function gutJSON(url) {
+  const tryOne = async (u, ms) => { const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+    try { const r = await fetch(u, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); const j = await r.json(); if (!j || typeof j !== 'object') throw new Error('bad json'); return j; } finally { clearTimeout(t); } };
   for (let a = 0; a < 2; a++) {
-    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 75000);
-    try { const r = await fetch(url, { signal: ctl.signal }); if (r.ok) return await r.json(); } catch {} finally { clearTimeout(t); }
-    await new Promise((r) => setTimeout(r, 600 * (a + 1)));
+    try { return await tryOne(url, a ? 45000 : 30000); } catch (e) { console.warn('gutendex', e.message || e); }
+    await new Promise((r) => setTimeout(r, 800 * (a + 1)));
   }
+  for (const px of PROXIES) { try { return await tryOne(px(url), 20000); } catch (e) { console.warn('gutendex proxy', e.message || e); } }
   throw new UserErr('The Gutenberg catalogue isn’t responding. Check your connection and try again.');
 }
 async function gutLoad(reset) {
@@ -320,9 +325,10 @@ async function gutLoad(reset) {
   if (!url) { G.loading = false; return; }
   if (reset && G.mode === 'stories' && !G.q && STORYJ?.books?.length) url = 'bundled:';
   if (reset && G.mode !== 'stories' && !G.q && G.topic === 'Popular' && STORYJ?.popular?.length) url = 'bundled-pop:';
+  if (reset && G.mode !== 'stories' && !G.q && G.topic !== 'Popular' && GENRES[G.topic]?.results?.length) url = 'bundled-genre:';
   $('#gutStatus').textContent = reset && /search=|topic=/.test(url) ? 'Searching the catalogue — first searches can take up to a minute…' : 'Loading…'; $('#gutStatus').className = 'gut-status loading';
   try {
-    let d = url === 'bundled:' ? { results: STORYJ.books, next: STORYJ.next } : url === 'bundled-pop:' ? { results: STORYJ.popular, next: STORYJ.popularNext } : await gutJSON(url); if (gen !== G.gen) return;
+    let d = url === 'bundled:' ? { results: STORYJ.books, next: STORYJ.next } : url === 'bundled-pop:' ? { results: STORYJ.popular, next: STORYJ.popularNext } : url === 'bundled-genre:' ? { ...GENRES[G.topic] } : await gutJSON(url); if (gen !== G.gen) return;
     if (reset && G.q) {
       // Gutendex search is accent-sensitive ("Miserables" ≠ "Misérables"): pin local featured matches, and retry with a shorter prefix
       const fq = fold(G.q); const pins = FEATURED.filter((f) => fold(f.title + ' ' + f.author).includes(fq) || fq.split(' ').every((w) => fold(f.title + ' ' + f.author).includes(w)));
@@ -344,10 +350,15 @@ async function gutLoad(reset) {
       li.onclick = () => showBook(b.id);
       $('#gutList').appendChild(li);
     });
-    $('#gutStatus').textContent = d.results.length || $('#gutList').children.length ? (G.next ? '' : 'That’s everything.') : 'No books found.';
-    $('#gutStatus').className = 'gut-status';
-  } catch (e) { if (gen === G.gen) { $('#gutStatus').textContent = e.message; $('#gutStatus').className = 'gut-status'; } }
+    if (d.results.length || $('#gutList').children.length) { $('#gutStatus').textContent = G.next ? '' : 'That’s everything.'; $('#gutStatus').className = 'gut-status'; }
+    else gutFail(G.q ? 'No books found.' : 'Couldn’t load this list.', reset);
+  } catch (e) { if (gen === G.gen) gutFail($('#gutList').children.length ? 'Couldn’t load more.' : 'Couldn’t load this list.', reset, url); }
   finally { if (gen === G.gen) G.loading = false; }
+}
+function gutFail(msg, reset, url) {
+  const st = $('#gutStatus'); st.className = 'gut-status';
+  st.innerHTML = `${esc(msg)} <button class="chip" id="gutRetry">Retry</button>`;
+  $('#gutRetry').onclick = () => { if (reset || !url) gutLoad(true); else { G.next = url; gutLoad(false); } };
 }
 async function showBook(id) {
   let b = G.cache[id];
@@ -381,15 +392,18 @@ async function addGutenberg(b) {
   const id = b.id;
   const txtSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.txt`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`];
   const epubSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.epub`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.epub`];
-  const attempts = [];
+  const attempts = [['txt', `books/${id}.txt`]];
+  const ft = b.formats?.['text/plain; charset=utf-8'] || b.formats?.['text/plain; charset=us-ascii'] || b.formats?.['text/plain'];
+  const fe = b.formats?.['application/epub+zip'];
+  if (ft && !txtSrc.includes(ft)) txtSrc.push(ft); if (fe && !epubSrc.includes(fe)) epubSrc.push(fe);
   for (const px of PROXIES) for (const u of txtSrc) attempts.push(['txt', px(u)]);
-  for (const px of PROXIES.slice(0, 3)) for (const u of epubSrc) attempts.push(['epub', px(u)]);
+  for (const px of PROXIES) for (const u of epubSrc) attempts.push(['epub', px(u)]);
   const approx = 0; let doc = null, k = 0;
   for (const [kind, url] of attempts) {
     k++;
     try {
       setP(`Connecting… (route ${k})`, null);
-      const buf = await fetchWithProgress(url, (n, tot) => setP(`Downloading ${(n / 1048576).toFixed(1)} MB${tot ? ' of ' + (tot / 1048576).toFixed(1) + ' MB' : ''}…`, tot ? n / tot : null));
+      const buf = await fetchWithProgress(url, (n, tot) => setP(`Downloading ${(n / 1048576).toFixed(1)} MB${tot ? ' of ' + (tot / 1048576).toFixed(1) + ' MB' : ''}…`, tot ? n / tot : null), k === 1 ? 20000 : 8000);
       if (kind === 'txt') {
         const raw = new TextDecoder('utf-8').decode(buf);
         if (buf.length < 2000 || !/\*\*\* ?START OF/i.test(raw)) throw new Error('not a gutenberg text');
