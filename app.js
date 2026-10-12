@@ -360,8 +360,17 @@ function gutFail(msg, reset, url) {
   st.innerHTML = `${esc(msg)} <button class="chip" id="gutRetry">Retry</button>`;
   $('#gutRetry').onclick = () => { if (reset || !url) gutLoad(true); else { G.next = url; gutLoad(false); } };
 }
+async function findGutenbergDoc(id, title, author) {
+  const all = await idb.all('meta'); const gid = String(id);
+  const hit = all.find((m) => m.source === 'gutenberg' && m.sourceId === gid);
+  if (hit || !title) return hit;
+  const ft = fold(title), fa = fold(author || '');
+  return all.find((m) => fold(m.title || '') === ft && (!fa || !m.author || fold(m.author) === fa));
+}
 async function showBook(id) {
   let b = G.cache[id];
+  { const f = FEATURED.find((x) => x.id === id); const ex = await findGutenbergDoc(id, b ? b.title : f?.title, b ? authorName(b) : f?.author).catch(() => null);
+    if (ex) { closeSheets(); return openDoc(ex.id); } }
   $('#bookBody').innerHTML = '<div class="spinner small"></div>'; openSheet('bookSheet');
   try { if (!b) b = G.cache[id] = await gutJSON(GX + id + '/'); } catch (e) { $('#bookBody').innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
   const tr = (b.translators || []).map((t) => t.name.replace(/^([^,]+),\s*(.+)$/, '$2 $1'));
@@ -386,6 +395,7 @@ async function fetchWithProgress(url, onProg, timeoutMs = 60000) {
   } finally { clearTimeout(t); }
 }
 async function addGutenberg(b) {
+  { const ex = await findGutenbergDoc(b.id, b.title, authorName(b)).catch(() => null); if (ex) { closeSheets(); return openDoc(ex.id); } }
   const btn = $('#bookAdd'); btn.disabled = true; btn.textContent = 'Downloading…';
   const prog = $('#bkProg'); prog.classList.add('show');
   const setP = (txt, frac) => { prog.querySelector('span').textContent = txt; prog.querySelector('i').style.width = frac == null ? '' : Math.round(frac * 100) + '%'; prog.classList.toggle('indet', frac == null); };
