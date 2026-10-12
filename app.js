@@ -1,4 +1,4 @@
-const APP_VER = 'v14';
+const APP_VER = 'v15';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
