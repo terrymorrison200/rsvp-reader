@@ -264,3 +264,4 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 .hint.center{text-align:center}
 .lib-main .gut-btn{margin-top:10px}
 .el-relay>summary{font-size:13px;color:var(--mute);font-weight:600;cursor:pointer;letter-spacing:.3px}
+.reading .context.show{pointer-events:none;opacity:.85}

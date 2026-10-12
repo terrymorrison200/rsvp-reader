@@ -1,4 +1,4 @@
-const APP_VER = 'v11';
+const APP_VER = 'v12';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -726,7 +726,7 @@ async function closeReader() {
 
 function chunkAt(i) { const n = S.chunk; const out = [R.words[i]]; for (let k = 1; k < n && i + k < R.words.length; k++) { if (R.words[i + k - 1].end >= 2) break; out.push(R.words[i + k]); } return out; }
 function render() {
-  const w = R.words[R.i]; if (!w) return;
+  const w = R.words[R.i]; if (!w) return; ctxFollow();
   const chunk = chunkAt(R.i);
   let text, oi;
   if (chunk.length === 1) { text = w.t; oi = orpIndex(text); }
@@ -768,7 +768,7 @@ function play() {
   if (R.playing || !R.words.length) return;
   if (R.i >= R.words.length - 1) R.i = 0;
   R.playing = true; R.rampN = 0; R.sessionStart = performance.now(); R.sessionWords = 0; R.sessionAt = new Date().toISOString();
-  document.body.classList.add('playing'); $('#readerView').classList.add('reading'); hideContext();
+  document.body.classList.add('playing'); $('#readerView').classList.add('reading'); showContext();
   if (R.narr && isEleven()) elUnlock(); // must run synchronously inside the tap for iOS
   if (R.audio) audioPlay(); else if (R.narr) speakFrom(R.i); else tick();
   wakeLock(true);
@@ -859,6 +859,15 @@ function showContext() {
   }
   box.classList.add('show');
   const cw = box.querySelector('.cur-word'); if (cw) box.scrollTop = cw.offsetTop - box.clientHeight / 2;
+}
+// Keep the paragraph view visible while playing: move the highlight and keep the current word in view.
+function ctxFollow() {
+  const box = $('#contextBox'); if (!box.classList.contains('show')) return;
+  const el = box.querySelector(`.w[data-i="${R.i}"]`); if (!el) { showContext(); return; }
+  if (el.classList.contains('cur-word')) return;
+  box.querySelectorAll('.cur-word').forEach((x) => x.classList.remove('cur-word')); el.classList.add('cur-word');
+  const s = R.words[R.i].s; box.querySelectorAll('.w').forEach((x) => x.classList.toggle('cur-sent', R.words[+x.dataset.i].s === s));
+  const top = el.offsetTop - box.scrollTop; if (top < box.clientHeight * 0.2 || top > box.clientHeight * 0.7) box.scrollTo({ top: el.offsetTop - box.clientHeight / 2, behavior: 'smooth' });
 }
 const hideContext = () => $('#contextBox').classList.remove('show');
 
