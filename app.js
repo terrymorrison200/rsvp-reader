@@ -1,3 +1,4 @@
+const APP_VER = 'v10';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -864,14 +865,23 @@ const hideContext = () => $('#contextBox').classList.remove('show');
 /* ---------------- Narration ---------------- */
 R.utterGen = 0;
 function loadVoices() {
-  const vs = 'speechSynthesis' in window ? speechSynthesis.getVoices() : []; const sel = $('#voiceSel');
+  const vs = ('speechSynthesis' in window ? speechSynthesis.getVoices() : []).filter((v) => /^en[-_]US$/i.test(v.lang)); // US English only const sel = $('#voiceSel');
   const lang = navigator.language.slice(0, 2);
   const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
   const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
-  let html = vs.length ? sorted.map((v) => opt(v.voiceURI, `${v.name} (${v.lang})${voiceQ(v) ? ' ★' : ''}${v.localService ? '' : ' ☁'}`)).join('') : opt('', 'System default');
-  if (elReady()) { const el = EL.voices.length ? EL.voices : [{ voice_id: EL_DEFAULT, name: 'Rachel' }]; html += `<optgroup label="ElevenLabs">${el.map((v) => opt('eleven:' + v.voice_id, v.name + ' · ElevenLabs')).join('')}</optgroup>`; if (!EL.voices.length) elLoadVoices(); }
+  const dev = vs.length ? sorted.map((v) => opt(v.voiceURI, `${v.name} (${v.lang})${voiceQ(v) ? ' ★' : ''}${v.localService ? '' : ' ☁'}`)).join('') : opt('', 'System default');
+  let html = '';
+  if (elReady()) {
+    let el = EL.voices.length ? [...EL.voices] : [{ voice_id: EL_DEFAULT, name: 'Sarah' }];
+    // keep the user's saved voice selectable even before /voices has loaded (or if it fails)
+    if (isEleven() && !EL.voices.length && !el.some((v) => 'eleven:' + v.voice_id === S.voice)) el.unshift({ voice_id: elVoice(), name: S.voiceName || 'Saved voice' });
+    html += `<optgroup label="★ ElevenLabs (natural)">${el.map((v) => opt('eleven:' + v.voice_id, '★ ' + v.name + ' — ElevenLabs')).join('')}</optgroup>`;
+    if (!EL.voices.length && !EL.loading) elLoadVoices();
+  } else html += `<option value="" disabled>ElevenLabs: not set up on this device (add relay below)</option>`;
+  html += `<optgroup label="Device voices">${dev}</optgroup>`;
   sel.innerHTML = html;
   if (S.voice && [...sel.options].some((o) => o.value === S.voice)) sel.value = S.voice;
+  const st = $('#elStatus'); if (st) st.textContent = elReady() ? `ElevenLabs connected on this device${EL.voices.length ? ` · ${EL.voices.length} voices` : ' · loading voices…'}` : 'ElevenLabs is not set up on this device. Each device (and the iPhone home-screen app) needs the relay URL and token entered here.';
   $('#elUsage').textContent = elUsageText();
 }
 function speakFrom(i) {
@@ -913,7 +923,7 @@ function setNarr(on) {
 }
 
 /* ---------------- ElevenLabs narration via relay (optional) ---------------- */
-const EL_DEFAULT = '21m00Tcm4TlvDq8ikWAM'; // "Rachel" premade voice
+const EL_DEFAULT = 'EXAVITQu4vr4xnSDxMaL'; // "Sarah" premade voice (American)
 const EL = { voices: [], gen: 0, cur: null, raf: 0, pending: new Map(), remaining: null };
 const EA = new Audio(); EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.mozPreservesPitch = true;
 // iOS Safari only lets an <audio> element start from a user gesture. ElevenLabs audio arrives async,
@@ -929,7 +939,14 @@ const isEleven = () => elReady() && String(S.voice).startsWith('eleven:');
 const elVoice = () => String(S.voice).slice(7) || EL_DEFAULT;
 const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
 async function elLoadVoices() {
-  try { const j = await (await relayFetch('/voices')).json(); const v = (j.voices || []).map(({ voice_id, name }) => ({ voice_id, name })); if (v.length) { EL.voices = v; if (isEleven() && !v.some((x) => 'eleven:' + x.voice_id === S.voice)) { S.voice = 'eleven:' + v[0].voice_id; saveS(); } loadVoices(); } } catch (e) { console.warn('voices', e); }
+  EL.loading = true;
+  try {
+    const r = await relayFetch('/voices'); if (!r.ok) throw new Error('relay ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 80));
+    const j = await r.json(); const rank = (x) => (x.category === 'premade' ? 0 : x.category === 'professional' ? 1 : 2);
+    const isUS = (x) => /^(american|us|u\.s\.|united states)/i.test(((x.labels || {}).accent || '').trim());
+    const v = (j.voices || []).filter(isUS).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name)).map(({ voice_id, name }) => ({ voice_id, name: name.split(' - ')[0] + (name.includes(' - ') ? ' (' + name.split(' - ')[1] + ')' : '') }));
+    if (v.length) { EL.voices = v; if (isEleven() && !v.some((x) => 'eleven:' + x.voice_id === S.voice)) { S.voice = 'eleven:' + v[0].voice_id; S.voiceName = v[0].name; saveS(); } loadVoices(); }
+  } catch (e) { console.warn('voices', e); toast('ElevenLabs voices: ' + (e.message || e)); } finally { EL.loading = false; }
 }
 const elUse = () => JSON.parse(localStorage.getItem('sr.elChars') || '{"total":0,"days":{}}');
 function elCount(n) { const u = elUse(); u.total += n; u.days[today()] = (u.days[today()] || 0) + n; localStorage.setItem('sr.elChars', JSON.stringify(u)); const el = $('#elUsage'); if (el) el.textContent = elUsageText(); }
@@ -1118,11 +1135,22 @@ $('#sizeIn').oninput = (e) => { S.size = +e.target.value; saveS(); applySettings
 $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySettings(); };
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
-$('#voiceSel').onchange = (e) => { S.voice = e.target.value; saveS(); };
+const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — ElevenLabs$/, '') : ''; S.voicePicked = true; saveS(); };
+$('#voiceSel').onchange = voicePick; $('#voiceSel').oninput = voicePick;
+$('#voicePreview').onclick = async () => {
+  const b = $('#voicePreview'); const text = 'Hello! This is how I sound in Swift Read.';
+  if (isEleven()) {
+    elUnlock(); b.disabled = true; b.textContent = 'Loading…';
+    try { const r = await relayFetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: elVoice() }) }); if (!r.ok) throw new Error((await r.text().catch(() => '')).slice(0, 120) || 'relay ' + r.status);
+      const j = await r.json(); elCount(text.length); if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(new Blob([Uint8Array.from(atob(j.audio_base64), (c) => c.charCodeAt(0))], { type: 'audio/mpeg' })); EA.playbackRate = 1; await EA.play();
+    } catch (e) { toast('Preview failed: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = '▶ Preview'; }
+  } else if ('speechSynthesis' in window) { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); const v = speechSynthesis.getVoices().find((x) => x.voiceURI === S.voice); if (v) { u.voice = v; u.lang = v.lang; } u.rate = S.rate; speechSynthesis.speak(u); }
+};
 const relayIn = () => { S.relayUrl = $('#relayUrlIn').value.trim(); S.relayToken = $('#relayTokIn').value.trim(); saveS(); EL.voices = []; if (!elReady() && String(S.voice).startsWith('eleven:')) { S.voice = ''; saveS(); }
-  if (elReady() && !isEleven()) { S.voice = 'eleven:' + EL_DEFAULT; S.elAuto = true; saveS(); if (!R.narr) { R.narr = true; $('#narrateBtn').setAttribute('aria-pressed', true); } toast('ElevenLabs connected — narration will use an ElevenLabs voice'); }
+  if (elReady() && !isEleven() && !S.voicePicked) { S.voice = 'eleven:' + EL_DEFAULT; S.elAuto = true; saveS(); if (!R.narr) { R.narr = true; $('#narrateBtn').setAttribute('aria-pressed', true); } toast('ElevenLabs connected — narration will use an ElevenLabs voice'); }
   loadVoices(); };
-$('#relayUrlIn').onchange = relayIn; $('#relayTokIn').onchange = relayIn;
+let relayT; const relayInSoon = () => { clearTimeout(relayT); relayT = setTimeout(relayIn, 600); };
+$('#relayUrlIn').onchange = relayIn; $('#relayTokIn').onchange = relayIn; $('#relayUrlIn').oninput = relayInSoon; $('#relayTokIn').oninput = relayInSoon;
 // one-time: relay already configured but a system voice still selected -> switch to ElevenLabs (user can switch back)
 if (elReady() && !isEleven() && !S.elAuto) { S.voice = 'eleven:' + EL_DEFAULT; S.elAuto = true; saveS(); loadVoices(); }
 $('#rateIn').oninput = (e) => { S.rate = +e.target.value; saveS(); $('#rateVal').textContent = S.rate.toFixed(1) + '×'; };
@@ -1148,9 +1176,21 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { pau
 addEventListener('resize', () => { applySettings(); });
 
 /* ---------------- Boot ---------------- */
+$('#updBtn').onclick = () => location.reload();
 $$('details.sec').forEach((d, i) => { const k = 'sr.sec.' + (d.id || i); if (localStorage.getItem(k) === '0') d.open = false; d.addEventListener('toggle', () => localStorage.setItem(k, d.open ? '1' : '0')); });
 applySettings();
 await document.fonts.ready.catch(() => {});
 renderLibrary(); loadChurch(); loadSuggestions(); loadJournals(); flushSync();
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+$('#appVer').textContent = 'Swift Read ' + APP_VER;
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  const hadCtl = !!navigator.serviceWorker.controller; let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadCtl || reloaded) return; reloaded = true;
+    if (!R.playing) location.reload(); else { $('#updBar').style.display = 'flex'; }
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
 window.__sr = { EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
