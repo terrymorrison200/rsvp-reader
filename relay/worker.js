@@ -30,9 +30,10 @@ export default {
       if (!text) return err(400, 'no text');
       if (text.length > MAX_CHARS) return err(413, `max ${MAX_CHARS} characters per request`);
       if (!/^[A-Za-z0-9]{10,40}$/.test(voice)) return err(400, 'bad voice id');
-      const cacheKey = new Request(`https://relay.cache/tts/${await sha(voice + '|' + text)}`);
-      const hit = await caches.default.match(cacheKey);
-      if (hit) return new Response(hit.body, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
+      // Cache API is a no-op on *.workers.dev, so dedupe via KV (TTL 10 min)
+      const dk = 'tts:' + (await sha(voice + '|' + text));
+      const hit = await env.BUDGET.get(dk, 'stream');
+      if (hit) return new Response(hit, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
       const limit = +(env.DAILY_CHAR_BUDGET || 120000); const key = 'chars:' + day();
       const used = +((await env.BUDGET.get(key)) || 0);
       if (used + text.length > limit) return err(429, 'daily character budget reached', 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
@@ -47,7 +48,7 @@ export default {
       }
       ctx.waitUntil(env.BUDGET.put(key, String(used + text.length), { expirationTtl: 3 * 86400 }));
       const [a, b] = r.body.tee();
-      ctx.waitUntil(caches.default.put(cacheKey, new Response(b, { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${DEDUPE_SECONDS}` } })));
+      ctx.waitUntil(new Response(b).text().then((t) => env.BUDGET.put(dk, t, { expirationTtl: DEDUPE_SECONDS })));
       return new Response(a, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
     }
     return err(404, 'not found');
