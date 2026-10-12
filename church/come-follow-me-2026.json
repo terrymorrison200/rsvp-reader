@@ -1,0 +1,3369 @@
+{
+ "year": 2026,
+ "manual": "Come, Follow Me—For Home and Church: Old Testament 2026",
+ "source": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026?lang=eng",
+ "generated": "2026-10-11",
+ "weeks": [
+  {
+   "week": 1,
+   "start": "2025-12-29",
+   "end": "2026-01-04",
+   "dates": "December 29–January 4",
+   "title": "Introduction to the Old Testament",
+   "reading": "Introduction to the Old Testament",
+   "chapters": [],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/01",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/01?lang=eng",
+   "lessonWords": 1448
+  },
+  {
+   "week": 2,
+   "start": "2026-01-05",
+   "end": "2026-01-11",
+   "dates": "January 5–11",
+   "title": "This Is My Work and My Glory",
+   "reading": "Moses 1; Abraham 3",
+   "chapters": [
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 1
+    },
+    {
+     "book": "Abraham",
+     "vol": "pgp",
+     "abbr": "abr",
+     "chapter": 3
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/02",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/02?lang=eng",
+   "lessonWords": 1485
+  },
+  {
+   "week": 3,
+   "start": "2026-01-12",
+   "end": "2026-01-18",
+   "dates": "January 12–18",
+   "title": "In the Beginning God Created the Heaven and the Earth",
+   "reading": "Genesis 1–2; Moses 2–3; Abraham 4–5",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 1
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 2
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 2
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 3
+    },
+    {
+     "book": "Abraham",
+     "vol": "pgp",
+     "abbr": "abr",
+     "chapter": 4
+    },
+    {
+     "book": "Abraham",
+     "vol": "pgp",
+     "abbr": "abr",
+     "chapter": 5
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/03",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/03?lang=eng",
+   "lessonWords": 1430
+  },
+  {
+   "week": 4,
+   "start": "2026-01-19",
+   "end": "2026-01-25",
+   "dates": "January 19–25",
+   "title": "Genesis 3–4; Moses 4–5",
+   "reading": "Genesis 3–4; Moses 4–5",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 3
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 4
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 4
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 5
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/04",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/04?lang=eng",
+   "lessonWords": 1706
+  },
+  {
+   "week": 5,
+   "start": "2026-01-26",
+   "end": "2026-02-01",
+   "dates": "January 26–February 1",
+   "title": "Teach These Things Freely unto Your Children",
+   "reading": "Genesis 5; Moses 6",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 5
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 6
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/05",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/05?lang=eng",
+   "lessonWords": 1530
+  },
+  {
+   "week": 6,
+   "start": "2026-02-02",
+   "end": "2026-02-08",
+   "dates": "February 2–8",
+   "title": "The Lord Called His People Zion",
+   "reading": "Moses 7",
+   "chapters": [
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 7
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/06",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/06?lang=eng",
+   "lessonWords": 1468
+  },
+  {
+   "week": 7,
+   "start": "2026-02-09",
+   "end": "2026-02-15",
+   "dates": "February 9–15",
+   "title": "Noah Found Grace in the Eyes of the Lord",
+   "reading": "Genesis 6–11; Moses 8",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 6
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 7
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 8
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 9
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 10
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 11
+    },
+    {
+     "book": "Moses",
+     "vol": "pgp",
+     "abbr": "moses",
+     "chapter": 8
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/07",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/07?lang=eng",
+   "lessonWords": 1468
+  },
+  {
+   "week": 8,
+   "start": "2026-02-16",
+   "end": "2026-02-22",
+   "dates": "February 16–22",
+   "title": "To Be a Greater Follower of Righteousness",
+   "reading": "Genesis 12–17; Abraham 1–2",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 12
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 13
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 14
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 15
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 16
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 17
+    },
+    {
+     "book": "Abraham",
+     "vol": "pgp",
+     "abbr": "abr",
+     "chapter": 1
+    },
+    {
+     "book": "Abraham",
+     "vol": "pgp",
+     "abbr": "abr",
+     "chapter": 2
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/08",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/08?lang=eng",
+   "lessonWords": 1485
+  },
+  {
+   "week": 9,
+   "start": "2026-02-23",
+   "end": "2026-03-01",
+   "dates": "February 23–March 1",
+   "title": "Is Any Thing Too Hard for the Lord?",
+   "reading": "Genesis 18–23",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 18
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 19
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 20
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 21
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 22
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 23
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/09",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/09?lang=eng",
+   "lessonWords": 1780
+  },
+  {
+   "week": 10,
+   "start": "2026-03-02",
+   "end": "2026-03-08",
+   "dates": "March 2–8",
+   "title": "Let God Prevail",
+   "reading": "Genesis 24–33",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 24
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 25
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 26
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 27
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 28
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 29
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 30
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 31
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 32
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 33
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/10",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/10?lang=eng",
+   "lessonWords": 1426
+  },
+  {
+   "week": 11,
+   "start": "2026-03-09",
+   "end": "2026-03-15",
+   "dates": "March 9–15",
+   "title": "The Lord Was with Joseph",
+   "reading": "Genesis 37–41",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 37
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 38
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 39
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 40
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 41
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/11",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/11?lang=eng",
+   "lessonWords": 1473
+  },
+  {
+   "week": 12,
+   "start": "2026-03-16",
+   "end": "2026-03-22",
+   "dates": "March 16–22",
+   "title": "God Meant It unto Good",
+   "reading": "Genesis 42–50",
+   "chapters": [
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 42
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 43
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 44
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 45
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 46
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 47
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 48
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 49
+    },
+    {
+     "book": "Genesis",
+     "vol": "ot",
+     "abbr": "gen",
+     "chapter": 50
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/12",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/12?lang=eng",
+   "lessonWords": 1441
+  },
+  {
+   "week": 13,
+   "start": "2026-03-23",
+   "end": "2026-03-29",
+   "dates": "March 23–29",
+   "title": "I Have Remembered My Covenant",
+   "reading": "Exodus 1–6",
+   "chapters": [
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 1
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 2
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 3
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 4
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 5
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 6
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/13",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/13?lang=eng",
+   "lessonWords": 1506
+  },
+  {
+   "week": 14,
+   "start": "2026-03-30",
+   "end": "2026-04-05",
+   "dates": "March 30–April 5",
+   "title": "He Will Swallow Up Death in Victory",
+   "reading": "Easter",
+   "chapters": [],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/14",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/14?lang=eng",
+   "lessonWords": 1487
+  },
+  {
+   "week": 15,
+   "start": "2026-04-06",
+   "end": "2026-04-12",
+   "dates": "April 6–12",
+   "title": "Remember This Day, in Which Ye Came Out from Egypt",
+   "reading": "Exodus 7–13",
+   "chapters": [
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 7
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 8
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 9
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 10
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 11
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 12
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 13
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/15",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/15?lang=eng",
+   "lessonWords": 1560
+  },
+  {
+   "week": 16,
+   "start": "2026-04-13",
+   "end": "2026-04-19",
+   "dates": "April 13–19",
+   "title": "Stand Still, and See the Salvation of the Lord",
+   "reading": "Exodus 14–18",
+   "chapters": [
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 14
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 15
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 16
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 17
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 18
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/16",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/16?lang=eng",
+   "lessonWords": 1459
+  },
+  {
+   "week": 17,
+   "start": "2026-04-20",
+   "end": "2026-04-26",
+   "dates": "April 20–26",
+   "title": "All That the Lord Hath Spoken We Will Do",
+   "reading": "Exodus 19–20; 24; 31–34",
+   "chapters": [
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 19
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 20
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 24
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 31
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 32
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 33
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 34
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/17",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/17?lang=eng",
+   "lessonWords": 1789
+  },
+  {
+   "week": 18,
+   "start": "2026-04-27",
+   "end": "2026-05-03",
+   "dates": "April 27–May 3",
+   "title": "Holiness to the Lord",
+   "reading": "Exodus 35–40; Leviticus 1; 4; 16; 19",
+   "chapters": [
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 35
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 36
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 37
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 38
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 39
+    },
+    {
+     "book": "Exodus",
+     "vol": "ot",
+     "abbr": "ex",
+     "chapter": 40
+    },
+    {
+     "book": "Leviticus",
+     "vol": "ot",
+     "abbr": "lev",
+     "chapter": 1
+    },
+    {
+     "book": "Leviticus",
+     "vol": "ot",
+     "abbr": "lev",
+     "chapter": 4
+    },
+    {
+     "book": "Leviticus",
+     "vol": "ot",
+     "abbr": "lev",
+     "chapter": 16
+    },
+    {
+     "book": "Leviticus",
+     "vol": "ot",
+     "abbr": "lev",
+     "chapter": 19
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/18",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/18?lang=eng",
+   "lessonWords": 1544
+  },
+  {
+   "week": 19,
+   "start": "2026-05-04",
+   "end": "2026-05-10",
+   "dates": "May 4–10",
+   "title": "Rebel Not Ye against the Lord, Neither Fear",
+   "reading": "Numbers 11–14; 20–24; 27",
+   "chapters": [
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 11
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 12
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 13
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 14
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 20
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 21
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 22
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 23
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 24
+    },
+    {
+     "book": "Numbers",
+     "vol": "ot",
+     "abbr": "num",
+     "chapter": 27
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/19",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/19?lang=eng",
+   "lessonWords": 1555
+  },
+  {
+   "week": 20,
+   "start": "2026-05-11",
+   "end": "2026-05-17",
+   "dates": "May 11–17",
+   "title": "Beware Lest Thou Forget the Lord",
+   "reading": "Deuteronomy 6–8; 15; 18; 29–30; 34",
+   "chapters": [
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 6
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 7
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 8
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 15
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 18
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 29
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 30
+    },
+    {
+     "book": "Deuteronomy",
+     "vol": "ot",
+     "abbr": "deut",
+     "chapter": 34
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/20",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/20?lang=eng",
+   "lessonWords": 1443
+  },
+  {
+   "week": 21,
+   "start": "2026-05-18",
+   "end": "2026-05-24",
+   "dates": "May 18–24",
+   "title": "Be Strong and of a Good Courage",
+   "reading": "Joshua 1–8; 23–24",
+   "chapters": [
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 1
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 2
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 3
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 4
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 5
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 6
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 7
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 8
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 23
+    },
+    {
+     "book": "Joshua",
+     "vol": "ot",
+     "abbr": "josh",
+     "chapter": 24
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/21",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/21?lang=eng",
+   "lessonWords": 1516
+  },
+  {
+   "week": 22,
+   "start": "2026-05-25",
+   "end": "2026-05-31",
+   "dates": "May 25–31",
+   "title": "The Lord Raised Up a Deliverer",
+   "reading": "Judges 2–4; 6–8; 13–16",
+   "chapters": [
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 2
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 3
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 4
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 6
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 7
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 8
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 13
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 14
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 15
+    },
+    {
+     "book": "Judges",
+     "vol": "ot",
+     "abbr": "judg",
+     "chapter": 16
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/22",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/22?lang=eng",
+   "lessonWords": 1630
+  },
+  {
+   "week": 23,
+   "start": "2026-06-01",
+   "end": "2026-06-07",
+   "dates": "June 1–7",
+   "title": "My Heart Rejoiceth in the Lord",
+   "reading": "Ruth; 1 Samuel 1–7",
+   "chapters": [
+    {
+     "book": "Ruth",
+     "vol": "ot",
+     "abbr": "ruth",
+     "chapter": 1
+    },
+    {
+     "book": "Ruth",
+     "vol": "ot",
+     "abbr": "ruth",
+     "chapter": 2
+    },
+    {
+     "book": "Ruth",
+     "vol": "ot",
+     "abbr": "ruth",
+     "chapter": 3
+    },
+    {
+     "book": "Ruth",
+     "vol": "ot",
+     "abbr": "ruth",
+     "chapter": 4
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 1
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 2
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 3
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 4
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 5
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 6
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 7
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/23",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/23?lang=eng",
+   "lessonWords": 1508
+  },
+  {
+   "week": 24,
+   "start": "2026-06-08",
+   "end": "2026-06-14",
+   "dates": "June 8–14",
+   "title": "The Lord Looketh on the Heart",
+   "reading": "1 Samuel 8–10; 13; 15–16",
+   "chapters": [
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 8
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 9
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 10
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 13
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 15
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 16
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/24",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/24?lang=eng",
+   "lessonWords": 1449
+  },
+  {
+   "week": 25,
+   "start": "2026-06-15",
+   "end": "2026-06-21",
+   "dates": "June 15–21",
+   "title": "The Battle Is the Lord’s",
+   "reading": "1 Samuel 17–18; 24–26; 2 Samuel 5–7",
+   "chapters": [
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 17
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 18
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 24
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 25
+    },
+    {
+     "book": "1 Samuel",
+     "vol": "ot",
+     "abbr": "1-sam",
+     "chapter": 26
+    },
+    {
+     "book": "2 Samuel",
+     "vol": "ot",
+     "abbr": "2-sam",
+     "chapter": 5
+    },
+    {
+     "book": "2 Samuel",
+     "vol": "ot",
+     "abbr": "2-sam",
+     "chapter": 6
+    },
+    {
+     "book": "2 Samuel",
+     "vol": "ot",
+     "abbr": "2-sam",
+     "chapter": 7
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/25",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/25?lang=eng",
+   "lessonWords": 1610
+  },
+  {
+   "week": 26,
+   "start": "2026-06-22",
+   "end": "2026-06-28",
+   "dates": "June 22–28",
+   "title": "Hear Thou in Heaven Their Prayer",
+   "reading": "2 Samuel 11–12; 1 Kings 3; 6–9; 11",
+   "chapters": [
+    {
+     "book": "2 Samuel",
+     "vol": "ot",
+     "abbr": "2-sam",
+     "chapter": 11
+    },
+    {
+     "book": "2 Samuel",
+     "vol": "ot",
+     "abbr": "2-sam",
+     "chapter": 12
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 3
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 6
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 7
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 8
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 9
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 11
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/26",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/26?lang=eng",
+   "lessonWords": 1481
+  },
+  {
+   "week": 27,
+   "start": "2026-06-29",
+   "end": "2026-07-05",
+   "dates": "June 29–July 5",
+   "title": "If the Lord Be God, Follow Him",
+   "reading": "1 Kings 12–13; 17–22",
+   "chapters": [
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 12
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 13
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 17
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 18
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 19
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 20
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 21
+    },
+    {
+     "book": "1 Kings",
+     "vol": "ot",
+     "abbr": "1-kgs",
+     "chapter": 22
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/27",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/27?lang=eng",
+   "lessonWords": 1460
+  },
+  {
+   "week": 28,
+   "start": "2026-07-06",
+   "end": "2026-07-12",
+   "dates": "July 6–12",
+   "title": "There Is a Prophet in Israel",
+   "reading": "2 Kings 2–7",
+   "chapters": [
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 2
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 3
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 4
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 5
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 6
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 7
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/28",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/28?lang=eng",
+   "lessonWords": 1666
+  },
+  {
+   "week": 29,
+   "start": "2026-07-13",
+   "end": "2026-07-19",
+   "dates": "July 13–19",
+   "title": "He Trusted in the Lord God of Israel",
+   "reading": "2 Kings 16–25",
+   "chapters": [
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 16
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 17
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 18
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 19
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 20
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 21
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 22
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 23
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 24
+    },
+    {
+     "book": "2 Kings",
+     "vol": "ot",
+     "abbr": "2-kgs",
+     "chapter": 25
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/29",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/29?lang=eng",
+   "lessonWords": 1551
+  },
+  {
+   "week": 30,
+   "start": "2026-07-20",
+   "end": "2026-07-26",
+   "dates": "July 20–26",
+   "title": "Our Eyes Are upon Thee",
+   "reading": "2 Chronicles 14–20; 26; 30",
+   "chapters": [
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 14
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 15
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 16
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 17
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 18
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 19
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 20
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 26
+    },
+    {
+     "book": "2 Chronicles",
+     "vol": "ot",
+     "abbr": "2-chr",
+     "chapter": 30
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/30",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/30?lang=eng",
+   "lessonWords": 1556
+  },
+  {
+   "week": 31,
+   "start": "2026-07-27",
+   "end": "2026-08-02",
+   "dates": "July 27–August 2",
+   "title": "I Am Doing a Great Work",
+   "reading": "Ezra 1; 3–7; Nehemiah 2; 4–6; 8",
+   "chapters": [
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 1
+    },
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 3
+    },
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 4
+    },
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 5
+    },
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 6
+    },
+    {
+     "book": "Ezra",
+     "vol": "ot",
+     "abbr": "ezra",
+     "chapter": 7
+    },
+    {
+     "book": "Nehemiah",
+     "vol": "ot",
+     "abbr": "neh",
+     "chapter": 2
+    },
+    {
+     "book": "Nehemiah",
+     "vol": "ot",
+     "abbr": "neh",
+     "chapter": 4
+    },
+    {
+     "book": "Nehemiah",
+     "vol": "ot",
+     "abbr": "neh",
+     "chapter": 5
+    },
+    {
+     "book": "Nehemiah",
+     "vol": "ot",
+     "abbr": "neh",
+     "chapter": 6
+    },
+    {
+     "book": "Nehemiah",
+     "vol": "ot",
+     "abbr": "neh",
+     "chapter": 8
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/31",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/31?lang=eng",
+   "lessonWords": 1533
+  },
+  {
+   "week": 32,
+   "start": "2026-08-03",
+   "end": "2026-08-09",
+   "dates": "August 3–9",
+   "title": "Thou Art Come … for Such a Time as This",
+   "reading": "Esther",
+   "chapters": [
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 1
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 2
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 3
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 4
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 5
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 6
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 7
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 8
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 9
+    },
+    {
+     "book": "Esther",
+     "vol": "ot",
+     "abbr": "esth",
+     "chapter": 10
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/32",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/32?lang=eng",
+   "lessonWords": 1491
+  },
+  {
+   "week": 33,
+   "start": "2026-08-10",
+   "end": "2026-08-16",
+   "dates": "August 10–16",
+   "title": "Yet Will I Trust in Him",
+   "reading": "Job 1–3; 12–14; 19; 21–24; 38–40; 42",
+   "chapters": [
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 1
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 2
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 3
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 12
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 13
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 14
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 19
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 21
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 22
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 23
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 24
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 38
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 39
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 40
+    },
+    {
+     "book": "Job",
+     "vol": "ot",
+     "abbr": "job",
+     "chapter": 42
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/33",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/33?lang=eng",
+   "lessonWords": 1507
+  },
+  {
+   "week": 34,
+   "start": "2026-08-17",
+   "end": "2026-08-23",
+   "dates": "August 17–23",
+   "title": "The Lord Is My Shepherd",
+   "reading": "Psalms 1–2; 8; 19–33; 40; 46",
+   "chapters": [
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 1
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 2
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 8
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 19
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 20
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 21
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 22
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 23
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 24
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 25
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 26
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 27
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 28
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 29
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 30
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 31
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 32
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 33
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 40
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 46
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/34",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/34?lang=eng",
+   "lessonWords": 1704
+  },
+  {
+   "week": 35,
+   "start": "2026-08-24",
+   "end": "2026-08-30",
+   "dates": "August 24–30",
+   "title": "I Will Declare What He Hath Done for My Soul",
+   "reading": "Psalms 49–51; 61–66; 69–72; 77–78; 85–86",
+   "chapters": [
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 49
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 50
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 51
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 61
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 62
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 63
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 64
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 65
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 66
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 69
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 70
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 71
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 72
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 77
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 78
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 85
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 86
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/35",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/35?lang=eng",
+   "lessonWords": 1559
+  },
+  {
+   "week": 36,
+   "start": "2026-08-31",
+   "end": "2026-09-06",
+   "dates": "August 31–September 6",
+   "title": "Let Every Thing That Hath Breath Praise the Lord",
+   "reading": "Psalms 102–3; 110; 116–19; 127–28; 135–39; 146–50",
+   "chapters": [
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 102
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 103
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 110
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 116
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 117
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 118
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 119
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 127
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 128
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 135
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 136
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 137
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 138
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 139
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 146
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 147
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 148
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 149
+    },
+    {
+     "book": "Psalms",
+     "vol": "ot",
+     "abbr": "ps",
+     "chapter": 150
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/36",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/36?lang=eng",
+   "lessonWords": 1542
+  },
+  {
+   "week": 37,
+   "start": "2026-09-07",
+   "end": "2026-09-13",
+   "dates": "September 7–13",
+   "title": "He Shall Direct Thy Paths",
+   "reading": "Proverbs 1–4; 15–16; 22; 31; Ecclesiastes 1–3; 11–12",
+   "chapters": [
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 1
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 2
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 3
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 4
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 15
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 16
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 22
+    },
+    {
+     "book": "Proverbs",
+     "vol": "ot",
+     "abbr": "prov",
+     "chapter": 31
+    },
+    {
+     "book": "Ecclesiastes",
+     "vol": "ot",
+     "abbr": "eccl",
+     "chapter": 1
+    },
+    {
+     "book": "Ecclesiastes",
+     "vol": "ot",
+     "abbr": "eccl",
+     "chapter": 2
+    },
+    {
+     "book": "Ecclesiastes",
+     "vol": "ot",
+     "abbr": "eccl",
+     "chapter": 3
+    },
+    {
+     "book": "Ecclesiastes",
+     "vol": "ot",
+     "abbr": "eccl",
+     "chapter": 11
+    },
+    {
+     "book": "Ecclesiastes",
+     "vol": "ot",
+     "abbr": "eccl",
+     "chapter": 12
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/37",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/37?lang=eng",
+   "lessonWords": 1536
+  },
+  {
+   "week": 38,
+   "start": "2026-09-14",
+   "end": "2026-09-20",
+   "dates": "September 14–20",
+   "title": "God Is My Salvation",
+   "reading": "Isaiah 1–12",
+   "chapters": [
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 1
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 2
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 3
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 4
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 5
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 6
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 7
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 8
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 9
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 10
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 11
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 12
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/38",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/38?lang=eng",
+   "lessonWords": 1663
+  },
+  {
+   "week": 39,
+   "start": "2026-09-21",
+   "end": "2026-09-27",
+   "dates": "September 21–27",
+   "title": "A Marvellous Work and a Wonder",
+   "reading": "Isaiah 13–14; 22; 24–30; 35",
+   "chapters": [
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 13
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 14
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 22
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 24
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 25
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 26
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 27
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 28
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 29
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 30
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 35
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/39",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/39?lang=eng",
+   "lessonWords": 1488
+  },
+  {
+   "week": 40,
+   "start": "2026-09-28",
+   "end": "2026-10-04",
+   "dates": "September 28–October 4",
+   "title": "Comfort Ye My People",
+   "reading": "Isaiah 40–49",
+   "chapters": [
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 40
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 41
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 42
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 43
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 44
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 45
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 46
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 47
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 48
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 49
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/40",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/40?lang=eng",
+   "lessonWords": 1498
+  },
+  {
+   "week": 41,
+   "start": "2026-10-05",
+   "end": "2026-10-11",
+   "dates": "October 5–11",
+   "title": "He Hath Borne Our Griefs, and Carried Our Sorrows",
+   "reading": "Isaiah 50–57",
+   "chapters": [
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 50
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 51
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 52
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 53
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 54
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 55
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 56
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 57
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/41",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/41?lang=eng",
+   "lessonWords": 1682
+  },
+  {
+   "week": 42,
+   "start": "2026-10-12",
+   "end": "2026-10-18",
+   "dates": "October 12–18",
+   "title": "The Redeemer Shall Come to Zion",
+   "reading": "Isaiah 58–66",
+   "chapters": [
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 58
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 59
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 60
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 61
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 62
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 63
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 64
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 65
+    },
+    {
+     "book": "Isaiah",
+     "vol": "ot",
+     "abbr": "isa",
+     "chapter": 66
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/42",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/42?lang=eng",
+   "lessonWords": 1558
+  },
+  {
+   "week": 43,
+   "start": "2026-10-19",
+   "end": "2026-10-25",
+   "dates": "October 19–25",
+   "title": "Before I Formed Thee in the Belly I Knew Thee",
+   "reading": "Jeremiah 1–3; 7; 16–18; 20",
+   "chapters": [
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 1
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 2
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 3
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 7
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 16
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 17
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 18
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 20
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/43",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/43?lang=eng",
+   "lessonWords": 1680
+  },
+  {
+   "week": 44,
+   "start": "2026-10-26",
+   "end": "2026-11-01",
+   "dates": "October 26–November 1",
+   "title": "I Will Turn Their Mourning into Joy",
+   "reading": "Jeremiah 31–33; 36–39; Lamentations 1; 3",
+   "chapters": [
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 31
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 32
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 33
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 36
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 37
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 38
+    },
+    {
+     "book": "Jeremiah",
+     "vol": "ot",
+     "abbr": "jer",
+     "chapter": 39
+    },
+    {
+     "book": "Lamentations",
+     "vol": "ot",
+     "abbr": "lam",
+     "chapter": 1
+    },
+    {
+     "book": "Lamentations",
+     "vol": "ot",
+     "abbr": "lam",
+     "chapter": 3
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/44",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/44?lang=eng",
+   "lessonWords": 1745
+  },
+  {
+   "week": 45,
+   "start": "2026-11-02",
+   "end": "2026-11-08",
+   "dates": "November 2–8",
+   "title": "A New Spirit Will I Put within You",
+   "reading": "Ezekiel 1–3; 33–34; 36–37; 47",
+   "chapters": [
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 1
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 2
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 3
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 33
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 34
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 36
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 37
+    },
+    {
+     "book": "Ezekiel",
+     "vol": "ot",
+     "abbr": "ezek",
+     "chapter": 47
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/45",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/45?lang=eng",
+   "lessonWords": 1509
+  },
+  {
+   "week": 46,
+   "start": "2026-11-09",
+   "end": "2026-11-15",
+   "dates": "November 9–15",
+   "title": "There Is No Other God That Can Deliver",
+   "reading": "Daniel 1–7",
+   "chapters": [
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 1
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 2
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 3
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 4
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 5
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 6
+    },
+    {
+     "book": "Daniel",
+     "vol": "ot",
+     "abbr": "dan",
+     "chapter": 7
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/46",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/46?lang=eng",
+   "lessonWords": 1534
+  },
+  {
+   "week": 47,
+   "start": "2026-11-16",
+   "end": "2026-11-22",
+   "dates": "November 16–22",
+   "title": "I Will Love Them Freely",
+   "reading": "Hosea 1–6; 10–14; Joel",
+   "chapters": [
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 1
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 2
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 3
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 4
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 5
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 6
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 10
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 11
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 12
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 13
+    },
+    {
+     "book": "Hosea",
+     "vol": "ot",
+     "abbr": "hosea",
+     "chapter": 14
+    },
+    {
+     "book": "Joel",
+     "vol": "ot",
+     "abbr": "joel",
+     "chapter": 1
+    },
+    {
+     "book": "Joel",
+     "vol": "ot",
+     "abbr": "joel",
+     "chapter": 2
+    },
+    {
+     "book": "Joel",
+     "vol": "ot",
+     "abbr": "joel",
+     "chapter": 3
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/47",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/47?lang=eng",
+   "lessonWords": 1649
+  },
+  {
+   "week": 48,
+   "start": "2026-11-23",
+   "end": "2026-11-29",
+   "dates": "November 23–29",
+   "title": "Seek the Lord, and Ye Shall Live",
+   "reading": "Amos; Obadiah; Jonah",
+   "chapters": [
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 1
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 2
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 3
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 4
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 5
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 6
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 7
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 8
+    },
+    {
+     "book": "Amos",
+     "vol": "ot",
+     "abbr": "amos",
+     "chapter": 9
+    },
+    {
+     "book": "Obadiah",
+     "vol": "ot",
+     "abbr": "obad",
+     "chapter": 1
+    },
+    {
+     "book": "Jonah",
+     "vol": "ot",
+     "abbr": "jonah",
+     "chapter": 1
+    },
+    {
+     "book": "Jonah",
+     "vol": "ot",
+     "abbr": "jonah",
+     "chapter": 2
+    },
+    {
+     "book": "Jonah",
+     "vol": "ot",
+     "abbr": "jonah",
+     "chapter": 3
+    },
+    {
+     "book": "Jonah",
+     "vol": "ot",
+     "abbr": "jonah",
+     "chapter": 4
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/48",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/48?lang=eng",
+   "lessonWords": 1602
+  },
+  {
+   "week": 49,
+   "start": "2026-11-30",
+   "end": "2026-12-06",
+   "dates": "November 30–December 6",
+   "title": "He Delighteth in Mercy",
+   "reading": "Micah; Nahum; Habakkuk; Zephaniah",
+   "chapters": [
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 1
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 2
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 3
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 4
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 5
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 6
+    },
+    {
+     "book": "Micah",
+     "vol": "ot",
+     "abbr": "micah",
+     "chapter": 7
+    },
+    {
+     "book": "Nahum",
+     "vol": "ot",
+     "abbr": "nahum",
+     "chapter": 1
+    },
+    {
+     "book": "Nahum",
+     "vol": "ot",
+     "abbr": "nahum",
+     "chapter": 2
+    },
+    {
+     "book": "Nahum",
+     "vol": "ot",
+     "abbr": "nahum",
+     "chapter": 3
+    },
+    {
+     "book": "Habakkuk",
+     "vol": "ot",
+     "abbr": "hab",
+     "chapter": 1
+    },
+    {
+     "book": "Habakkuk",
+     "vol": "ot",
+     "abbr": "hab",
+     "chapter": 2
+    },
+    {
+     "book": "Habakkuk",
+     "vol": "ot",
+     "abbr": "hab",
+     "chapter": 3
+    },
+    {
+     "book": "Zephaniah",
+     "vol": "ot",
+     "abbr": "zeph",
+     "chapter": 1
+    },
+    {
+     "book": "Zephaniah",
+     "vol": "ot",
+     "abbr": "zeph",
+     "chapter": 2
+    },
+    {
+     "book": "Zephaniah",
+     "vol": "ot",
+     "abbr": "zeph",
+     "chapter": 3
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/49",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/49?lang=eng",
+   "lessonWords": 1468
+  },
+  {
+   "week": 50,
+   "start": "2026-12-07",
+   "end": "2026-12-13",
+   "dates": "December 7–13",
+   "title": "Holiness unto the Lord",
+   "reading": "Haggai 1–2; Zechariah 1–4; 7–14",
+   "chapters": [
+    {
+     "book": "Haggai",
+     "vol": "ot",
+     "abbr": "hag",
+     "chapter": 1
+    },
+    {
+     "book": "Haggai",
+     "vol": "ot",
+     "abbr": "hag",
+     "chapter": 2
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 1
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 2
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 3
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 4
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 7
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 8
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 9
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 10
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 11
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 12
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 13
+    },
+    {
+     "book": "Zechariah",
+     "vol": "ot",
+     "abbr": "zech",
+     "chapter": 14
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/50",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/50?lang=eng",
+   "lessonWords": 1483
+  },
+  {
+   "week": 51,
+   "start": "2026-12-14",
+   "end": "2026-12-20",
+   "dates": "December 14–20",
+   "title": "I Have Loved You, Saith the Lord",
+   "reading": "Malachi",
+   "chapters": [
+    {
+     "book": "Malachi",
+     "vol": "ot",
+     "abbr": "mal",
+     "chapter": 1
+    },
+    {
+     "book": "Malachi",
+     "vol": "ot",
+     "abbr": "mal",
+     "chapter": 2
+    },
+    {
+     "book": "Malachi",
+     "vol": "ot",
+     "abbr": "mal",
+     "chapter": 3
+    },
+    {
+     "book": "Malachi",
+     "vol": "ot",
+     "abbr": "mal",
+     "chapter": 4
+    }
+   ],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/51",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/51?lang=eng",
+   "lessonWords": 1515
+  },
+  {
+   "week": 52,
+   "start": "2026-12-21",
+   "end": "2026-12-27",
+   "dates": "December 21–27",
+   "title": "We Have Waited for Him, and He Will Save Us",
+   "reading": "Christmas",
+   "chapters": [],
+   "lessonUri": "/manual/come-follow-me-for-home-and-church-old-testament-2026/52",
+   "url": "https://www.churchofjesuschrist.org/study/manual/come-follow-me-for-home-and-church-old-testament-2026/52?lang=eng",
+   "lessonWords": 1478
+  }
+ ]
+}

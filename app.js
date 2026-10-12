@@ -4,13 +4,13 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 /* ---------------- IndexedDB ---------------- */
 const db = await new Promise((res, rej) => {
-  const r = indexedDB.open('swiftread', 1);
+  const r = indexedDB.open('swiftread', 2);
   r.onupgradeneeded = () => {
-    const d = r.result;
-    d.createObjectStore('docs', { keyPath: 'id' });
-    d.createObjectStore('meta', { keyPath: 'id' });
-    const h = d.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true });
-    h.createIndex('doc', 'docId');
+    const d = r.result; const has = (n) => d.objectStoreNames.contains(n);
+    if (!has('docs')) d.createObjectStore('docs', { keyPath: 'id' });
+    if (!has('meta')) d.createObjectStore('meta', { keyPath: 'id' });
+    if (!has('highlights')) { const h = d.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true }); h.createIndex('doc', 'docId'); }
+    if (!has('outbox')) d.createObjectStore('outbox', { keyPath: 'n', autoIncrement: true });
   };
   r.onsuccess = () => res(r.result);
   r.onerror = () => rej(r.error);
@@ -28,7 +28,7 @@ const idb = {
 };
 
 /* ---------------- Settings ---------------- */
-const DEF = { theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1 };
+const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1 };
 const S = Object.assign({}, DEF, JSON.parse(localStorage.getItem('sr.settings') || '{}'));
 const saveS = () => localStorage.setItem('sr.settings', JSON.stringify(S));
 const FONTS = { inter: 'Inter,system-ui,sans-serif', literata: 'Literata,Georgia,serif', mono: 'JBMono,ui-monospace,monospace', dyslexic: 'OpenDyslexic,Inter,sans-serif' };
@@ -109,27 +109,70 @@ function chaptersToWordIdx(text, chapters) {
 }
 
 /* ---------------- Importers ---------------- */
+async function sniffKind(file) {
+  const head = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+  if (head[0] === 0x50 && head[1] === 0x4b && (head[2] === 3 || head[2] === 5 || head[2] === 7)) return 'zip';
+  const asc = new TextDecoder('latin1').decode(head);
+  if (asc.includes('%PDF-')) return 'pdf';
+  if (!head.length) return 'empty';
+  let bad = 0; for (const b of head) if (b === 0 || (b < 9) || (b > 13 && b < 32 && b !== 27)) bad++;
+  if (bad > head.length * 0.02) return 'binary';
+  const t = asc.replace(/^\uFEFF|^\xEF\xBB\xBF/, '').trimStart().slice(0, 600).toLowerCase();
+  if (/^(<!doctype html|<html|<\?xml[^>]*>\s*(<!doctype html|<html))/.test(t) || /<(head|body|meta|div|p)[\s>]/.test(t)) return 'html';
+  return 'text';
+}
 async function importFile(file) {
   const name = file.name.replace(/\.[^.]+$/, ''); const ext = (file.name.split('.').pop() || '').toLowerCase();
   showLoading('Importing ' + file.name + '…');
   try {
-    let doc;
-    if (ext === 'epub') doc = await parseEpub(file);
-    else if (ext === 'pdf' || file.type === 'application/pdf') doc = await parsePdf(file);
-    else {
-      const raw = await file.text();
-      if (ext === 'html' || ext === 'htm') { const { paras, heading } = htmlToParas(raw); doc = { title: heading || name, text: paras.join('\n\n'), chapters: [] }; }
-      else if (ext === 'md' || ext === 'markdown') { const { text, chapters } = mdToText(raw); doc = { title: name, text, chapters: [] };
-        // convert md chapters (line-based) by locating headings in paragraph list
-        const paras = text.split(/\n\s*\n+/).filter((p) => p.trim()); doc.chapters = chapters.map((c) => ({ title: c.title, paraIdx: paras.findIndex((p) => p.trim() === c.title) })).filter((c) => c.paraIdx >= 0); }
-      else doc = { title: name, text: raw.replace(/\r/g, ''), chapters: [] };
-      doc.title = doc.title || name;
-    }
-    doc.type = ext || 'txt';
+    let doc; const kind = await sniffKind(file);
+    if (kind === 'zip') {
+      try { doc = await parseEpub(file); } catch (e) { console.warn(e); throw new UserErr('That file is a zip archive but not a readable EPUB.'); }
+      doc.type = 'epub';
+    } else if (kind === 'pdf') { try { doc = await parsePdf(file); } catch (e) { console.warn(e); throw new UserErr('That PDF could not be read (it may be scanned images or password-protected).'); } doc.type = 'pdf'; }
+    else if (kind === 'html') {
+      const raw = await file.text(); const { paras, heading } = htmlToParas(raw);
+      const text = paras.join('\n\n');
+      if (ext === 'epub' && /gutenberg/i.test(raw) && text.split(/\s+/).length < 400) throw new UserErr('This “EPUB” is actually a web page Safari saved, not the book. Try “Browse Gutenberg” in Swift Read instead.');
+      doc = { title: heading || name, text, chapters: [], type: 'html' };
+    } else if (kind === 'text') {
+      const raw = (await file.text()).replace(/\r/g, '');
+      if (ext === 'md' || ext === 'markdown') { const { text, chapters } = mdToText(raw); const paras = text.split(/\n\s*\n+/).filter((p) => p.trim());
+        doc = { title: name, text, type: 'md', chapters: chapters.map((c) => ({ title: c.title, paraIdx: paras.findIndex((p) => p.trim() === c.title) })).filter((c) => c.paraIdx >= 0) }; }
+      else if (/\*\*\* ?START OF (THE|THIS) PROJECT GUTENBERG/i.test(raw)) doc = Object.assign(gutenbergText(raw), { type: 'txt' });
+      else doc = { title: name, text: raw, chapters: [], type: 'txt' };
+    } else throw new UserErr(kind === 'empty' ? 'That file is empty.' : 'Swift Read can’t read this kind of file. Try TXT, EPUB, PDF, HTML or Markdown.');
     if (!doc.title) doc.title = name;
     const id = await addDoc(doc);
     hideLoading(); openDoc(id);
-  } catch (e) { console.error(e); hideLoading(); toast('Could not import: ' + (e.message || e)); }
+  } catch (e) { console.error(e); hideLoading(); toast(e instanceof UserErr ? e.message : 'Couldn’t import that file — it may be damaged or in an unsupported format.'); }
+}
+class UserErr extends Error {}
+/* Gutenberg plain text: strip boilerplate, find chapter headings */
+function gutenbergText(raw) {
+  raw = raw.replace(/\r/g, '').replace(/^\uFEFF/, '');
+  const titleM = raw.match(/^Title:\s*(.+)$/m);
+  const s = raw.search(/\*\*\* ?START OF (THE|THIS) PROJECT GUTENBERG[^\n]*/i);
+  let body = s >= 0 ? raw.slice(raw.indexOf('\n', s) + 1) : raw;
+  const e = body.search(/\*\*\* ?END OF (THE|THIS) PROJECT GUTENBERG/i); if (e >= 0) body = body.slice(0, e);
+  body = body.replace(/^\s*\[Illustration[^\]]*\]\s*$/gm, '');
+  const paras = body.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  const rx = /^(BOOK|CHAPTER|VOLUME|PART|STAVE|CANTO|ACT)\b[\s.]*(?:[IVXLCDM]+|\d+|THE\b|[A-Z]+)/i;
+  const isH = paras.map((p) => p.split('\n').length <= 3 && p.length < 160 && rx.test(p) && !/[a-z]{3,}.*[.,;]$/.test(p) && !/[a-z]{4,}/.test(p.split('\n')[0].replace(rx, '')) );
+  const hTitle = (p) => p.split('\n').map((l) => l.trim()).reduce((a, l) => (!a ? l : /^(\S+\s+)?([IVXLCDM]+|\d+)\.?$/i.test(a) ? a + ' — ' + l : a + ' ' + l), '');
+  const chapters = [];
+  for (let i = 0; i < paras.length; i++) {
+    if (!isH[i]) continue;
+    let a = i, b = i; while (a > 0 && isH[a - 1]) a--; while (b < paras.length - 1 && isH[b + 1]) b++;
+    if (b - a >= 4) continue; // table of contents run
+    chapters.push({ title: hTitle(paras[i]), paraIdx: i });
+  }
+  // a contents list repeats headings that appear again later: keep only the last occurrence
+  const key = (t) => t.toUpperCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const last = {}; chapters.forEach((c, k) => (last[key(c.title)] = k));
+  const kept = chapters.filter((c, k) => last[key(c.title)] === k || c.paraIdx > paras.length * 0.1);
+  chapters.length = 0; chapters.push(...kept);
+  return { title: titleM ? titleM[1].trim() : '', text: paras.join('\n\n'), chapters };
 }
 async function parsePdf(file) {
   const pdfjs = await import('./vendor/pdf.min.mjs');
@@ -208,8 +251,331 @@ async function addDoc(doc) {
   if (!words.length) throw new Error('no readable text found');
   const chapters = (doc.chapters || []).map((c) => ({ title: c.title, word: Math.max(0, words.findIndex((w) => w.p >= c.paraIdx)) }));
   await idb.put('docs', { id, text: doc.text, chapters });
-  await idb.put('meta', { id, title: doc.title, type: doc.type, count: words.length, pos: 0, added: Date.now(), opened: Date.now() });
+  await idb.put('meta', { id, title: doc.title, author: doc.author || '', source: doc.source || 'local', sourceId: doc.sourceId || '', audio: doc.audio || '', type: doc.type, count: words.length, pos: 0, added: Date.now(), opened: Date.now() });
   return id;
+}
+
+
+/* ---------------- Project Gutenberg browser ---------------- */
+const GX = 'https://gutendex.com/books/';
+// gutenberg.org files have no CORS headers -> go through public CORS proxies, trying mirrors & proxies in turn
+const PROXIES = [
+  (u) => 'https://cors.eu.org/' + u,
+  (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  (u) => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u),
+  (u) => 'https://api.cors.lol/?url=' + encodeURIComponent(u),
+  (u) => 'https://everyorigin.jwvbremen.nl/api/get?url=' + encodeURIComponent(u),
+];
+const FEATURED = [
+  { id: 135, title: 'Les Misérables', author: 'Victor Hugo', note: 'Hapgood translation · unabridged' },
+  { id: 1342, title: 'Pride and Prejudice', author: 'Jane Austen' },
+  { id: 2701, title: 'Moby Dick', author: 'Herman Melville' },
+  { id: 1184, title: 'The Count of Monte Cristo', author: 'Alexandre Dumas' },
+  { id: 84, title: 'Frankenstein', author: 'Mary Shelley' },
+  { id: 98, title: 'A Tale of Two Cities', author: 'Charles Dickens' },
+];
+const TOPICS = ['Popular', 'Fiction', 'Adventure', 'Romance', 'Mystery', 'Science Fiction', 'Philosophy', 'History', 'Poetry', 'Children', 'Short Stories', 'Gothic'];
+let STORYW = {}, STORYJ = null; fetch('stories.json').then((r) => r.json()).then((j) => { STORYJ = j; STORYW = j.words || {}; }).catch(() => {});
+const G = { mode: 'books', q: '', topic: 'Popular', next: null, loading: false, gen: 0, cache: {} };
+const cover = (id) => `https://www.gutenberg.org/cache/epub/${id}/pg${id}.cover.medium.jpg`;
+window.coverErr = (img) => { if (!img.dataset.f && /gutenberg\.org\/cache/.test(img.src)) { img.dataset.f = 1; img.src = img.src.replace('www.gutenberg.org', 'gutenberg.pglaf.org'); } else img.style.visibility = 'hidden'; };
+const fold = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+const authorName = (b) => (b.authors?.[0]?.name || 'Unknown').replace(/^([^,]+),\s*(.+)$/, '$2 $1');
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function openGutenberg() {
+  showView('gutView'); history.pushState({ v: 'gut' }, '');
+  if (!$('#gutFeatured').children.length) renderFeatured();
+  if (!$('#gutTopics').children.length) {
+    $('#gutTopics').innerHTML = TOPICS.map((t) => `<button class="chip${t === G.topic ? ' on' : ''}" data-t="${t}">${t}</button>`).join('');
+    $$('#gutTopics .chip').forEach((b) => (b.onclick = () => { G.topic = b.dataset.t; G.q = ''; $('#gutSearch').value = ''; $$('#gutTopics .chip').forEach((x) => x.classList.toggle('on', x === b)); gutLoad(true); }));
+  }
+  if (!$('#gutList').children.length) gutLoad(true);
+}
+function renderFeatured() {
+  $('#gutFeatured').innerHTML = FEATURED.map((f) => `<button class="feat" data-id="${f.id}"><img loading="lazy" alt="" src="${cover(f.id)}" onerror="coverErr(this)"><span class="ft">${esc(f.title)}</span><span class="fa">${esc(f.author)}</span>${f.note ? `<span class="fn">${esc(f.note)}</span>` : ''}</button>`).join('');
+  $$('#gutFeatured .feat').forEach((b) => (b.onclick = () => showBook(+b.dataset.id)));
+}
+async function gutJSON(url) {
+  for (let a = 0; a < 2; a++) {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 75000);
+    try { const r = await fetch(url, { signal: ctl.signal }); if (r.ok) return await r.json(); } catch {} finally { clearTimeout(t); }
+    await new Promise((r) => setTimeout(r, 600 * (a + 1)));
+  }
+  throw new UserErr('The Gutenberg catalogue isn’t responding. Check your connection and try again.');
+}
+async function gutLoad(reset) {
+  if (!reset && (G.loading || !G.next)) return;
+  const gen = ++G.gen; G.loading = true;
+  let url;
+  if (reset) {
+    $('#gutList').innerHTML = ''; G.next = null;
+    const p = new URLSearchParams({ languages: 'en' });
+    if (G.mode === 'stories') p.set('topic', 'short stories'); if (G.q) p.set('search', G.q); else if (G.mode !== 'stories' && G.topic !== 'Popular') p.set('topic', G.topic.toLowerCase());
+    url = GX + '?' + p;
+    $('#gutHeading').textContent = G.mode === 'stories' && !G.q ? 'Short stories' : G.q ? `Results for “${G.q}”` : G.topic === 'Popular' ? 'Most popular' : G.topic;
+  } else url = G.next;
+  if (!url) { G.loading = false; return; }
+  if (reset && G.mode === 'stories' && !G.q && STORYJ?.books?.length) url = 'bundled:';
+  $('#gutStatus').textContent = reset && /search=|topic=/.test(url) ? 'Searching the catalogue — first searches can take up to a minute…' : 'Loading…'; $('#gutStatus').className = 'gut-status loading';
+  try {
+    let d = url === 'bundled:' ? { results: STORYJ.books, next: STORYJ.next } : await gutJSON(url); if (gen !== G.gen) return;
+    if (reset && G.q) {
+      // Gutendex search is accent-sensitive ("Miserables" ≠ "Misérables"): pin local featured matches, and retry with a shorter prefix
+      const fq = fold(G.q); const pins = FEATURED.filter((f) => fold(f.title + ' ' + f.author).includes(fq) || fq.split(' ').every((w) => fold(f.title + ' ' + f.author).includes(w)));
+      let extra = [];
+      if (pins.length) { try { extra = (await gutJSON(GX + '?ids=' + pins.map((f) => f.id).join(','))).results; } catch {} }
+      if (!d.results.length && /[a-z]/i.test(G.q)) {
+        const m = G.q.slice(4).search(/[aeiouycn]/i); const pre = m >= 0 ? G.q.slice(0, 4 + m) : '';
+        if (pre && pre.length < G.q.length) { $('#gutStatus').textContent = 'Looking for accented spellings…';
+          try { const d2 = await gutJSON(GX + '?' + new URLSearchParams({ languages: 'en', search: pre })); d = { ...d2, results: d2.results.filter((b) => fq.split(' ').every((w) => fold(b.title + ' ' + (b.authors || []).map((a) => a.name).join(' ')).includes(w))), next: null }; } catch {} }
+      }
+      if (gen !== G.gen) return;
+      d.results = [...extra, ...d.results.filter((b) => !extra.some((x) => x.id === b.id))];
+    }
+    G.next = d.next;
+    d.results.forEach((b, i) => {
+      G.cache[b.id] = b;
+      const li = document.createElement('li'); li.className = 'gbook'; li.style.animationDelay = (i % 32) * 20 + 'ms';
+      li.innerHTML = `<img loading="lazy" alt="" src="${esc(b.formats['image/jpeg'] || cover(b.id))}" onerror="coverErr(this)"><div class="gi"><div class="gt">${esc(b.title)}</div><div class="ga">${esc(authorName(b))}</div><div class="gd">${STORYW[b.id] ? '~' + fmtMin(STORYW[b.id]) + ' at ' + S.wpm + ' wpm · ' : ''}${b.download_count.toLocaleString()} downloads</div></div>`;
+      li.onclick = () => showBook(b.id);
+      $('#gutList').appendChild(li);
+    });
+    $('#gutStatus').textContent = d.results.length || $('#gutList').children.length ? (G.next ? '' : 'That’s everything.') : 'No books found.';
+    $('#gutStatus').className = 'gut-status';
+  } catch (e) { if (gen === G.gen) { $('#gutStatus').textContent = e.message; $('#gutStatus').className = 'gut-status'; } }
+  finally { if (gen === G.gen) G.loading = false; }
+}
+async function showBook(id) {
+  let b = G.cache[id];
+  $('#bookBody').innerHTML = '<div class="spinner small"></div>'; openSheet('bookSheet');
+  try { if (!b) b = G.cache[id] = await gutJSON(GX + id + '/'); } catch (e) { $('#bookBody').innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
+  const tr = (b.translators || []).map((t) => t.name.replace(/^([^,]+),\s*(.+)$/, '$2 $1'));
+  const subj = [...new Set([...(b.subjects || []).map((s) => s.split(' -- ')[0]), ...(b.bookshelves || []).map((s) => s.replace(/^Category:\s*/, ''))])].slice(0, 8);
+  $('#bookBody').innerHTML = `<div class="bk-top"><img alt="" src="${esc(b.formats['image/jpeg'] || cover(b.id))}" onerror="coverErr(this)"><div><h3 class="bk-title">${esc(b.title)}</h3><div class="bk-author">${esc(authorName(b))}</div>${tr.length ? `<div class="bk-sub">Translated by ${esc(tr.join(', '))}</div>` : ''}<div class="bk-sub">${b.download_count.toLocaleString()} downloads · Gutenberg #${b.id}</div></div></div>
+    <div class="bk-tags">${subj.map((s) => `<span>${esc(s)}</span>`).join('')}</div>
+    <div class="bk-prog" id="bkProg"><i></i><span></span></div>`;
+  $('#bookAdd').onclick = () => addGutenberg(b);
+  $('#bookAdd').disabled = false; $('#bookAdd').textContent = 'Add to library';
+}
+async function fetchWithProgress(url, onProg, timeoutMs = 60000) {
+  const ctl = new AbortController(); let t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const total = +r.headers.get('content-length') || 0;
+    if (!r.body || !r.body.getReader) { const buf = new Uint8Array(await r.arrayBuffer()); onProg(buf.length, total); return buf; }
+    const rd = r.body.getReader(); const parts = []; let n = 0;
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); n += value.length; onProg(n, total);
+      clearTimeout(t); t = setTimeout(() => ctl.abort(), 20000); }
+    const out = new Uint8Array(n); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out;
+  } finally { clearTimeout(t); }
+}
+async function addGutenberg(b) {
+  const btn = $('#bookAdd'); btn.disabled = true; btn.textContent = 'Downloading…';
+  const prog = $('#bkProg'); prog.classList.add('show');
+  const setP = (txt, frac) => { prog.querySelector('span').textContent = txt; prog.querySelector('i').style.width = frac == null ? '' : Math.round(frac * 100) + '%'; prog.classList.toggle('indet', frac == null); };
+  const id = b.id;
+  const txtSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.txt`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`];
+  const epubSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.epub`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.epub`];
+  const attempts = [];
+  for (const px of PROXIES) for (const u of txtSrc) attempts.push(['txt', px(u)]);
+  for (const px of PROXIES.slice(0, 3)) for (const u of epubSrc) attempts.push(['epub', px(u)]);
+  const approx = 0; let doc = null, k = 0;
+  for (const [kind, url] of attempts) {
+    k++;
+    try {
+      setP(`Connecting… (route ${k})`, null);
+      const buf = await fetchWithProgress(url, (n, tot) => setP(`Downloading ${(n / 1048576).toFixed(1)} MB${tot ? ' of ' + (tot / 1048576).toFixed(1) + ' MB' : ''}…`, tot ? n / tot : null));
+      if (kind === 'txt') {
+        const raw = new TextDecoder('utf-8').decode(buf);
+        if (buf.length < 2000 || !/\*\*\* ?START OF/i.test(raw)) throw new Error('not a gutenberg text');
+        doc = gutenbergText(raw); doc.type = 'txt';
+      } else {
+        if (!(buf[0] === 0x50 && buf[1] === 0x4b)) throw new Error('not a zip');
+        setP('Unpacking EPUB…', null);
+        doc = await parseEpub(new File([buf], `pg${id}.epub`)); doc.type = 'epub';
+      }
+      break;
+    } catch (e) { console.warn('gutenberg route failed', url, e.message || e); }
+  }
+  if (!doc) { setP('', 0); prog.classList.remove('show'); btn.disabled = false; btn.textContent = 'Try again'; toast('Couldn’t download this book right now — the free download relays are busy. Please try again in a minute.'); return; }
+  setP('Saving to your library…', 1);
+  doc.title = b.title; doc.author = authorName(b); doc.source = 'gutenberg'; doc.sourceId = String(b.id);
+  try {
+    const did = await addDoc(doc);
+    closeSheets(); toast('Added “' + b.title + '”'); openDoc(did, true);
+  } catch (e) { console.error(e); btn.disabled = false; btn.textContent = 'Try again'; toast('Couldn’t save the book on this device.'); }
+}
+
+
+/* ---------------- Reading history + automatic sync ---------------- */
+const HIST = JSON.parse(localStorage.getItem('sr.history') || '{}');
+const saveH = () => localStorage.setItem('sr.history', JSON.stringify(HIST));
+const docInfo = (m) => ({ docId: m.id, title: m.title, author: m.author || '', source: m.source || 'local', sourceId: m.sourceId || '', total: m.count });
+function histOpen(m) {
+  const h = (HIST[m.id] ||= { ...docInfo(m), wordsRead: 0, finished: false, firstOpened: new Date().toISOString(), sessions: [] });
+  Object.assign(h, docInfo(m)); h.lastOpened = new Date().toISOString(); saveH();
+  logEvent('open', { pos: m.pos });
+}
+function histSession(ms) {
+  if (!R.meta || !(R.sessionWords > 0)) return;
+  const h = HIST[R.id]; if (!h) return;
+  const wpm = ms > 3000 ? Math.round(R.sessionWords / (ms / 60000)) : S.wpm;
+  const ses = { start: R.sessionAt, end: new Date().toISOString(), words: R.sessionWords, seconds: Math.round(ms / 1000), wpm, setWpm: S.wpm, mode: R.audio ? 'audio' : R.narr ? 'narrate' : 'rsvp' };
+  h.sessions.push(ses); if (h.sessions.length > 200) h.sessions.shift();
+  h.wordsRead += R.sessionWords; h.pos = R.i; h.pct = Math.round((R.i / Math.max(1, R.words.length - 1)) * 100);
+  if (h.pct >= 97) h.finished = true; saveH();
+  logEvent('session', { ...ses, pos: R.i, pct: h.pct, finished: h.finished });
+  R.sessionWords = 0;
+}
+function histFinished() { const h = HIST[R.id]; if (h && !h.finishedLogged) { h.finished = true; h.finishedLogged = true; h.finishedAt = new Date().toISOString(); saveH(); logEvent('finished', {}); } }
+const isRead = (sourceId) => Object.values(HIST).some((h) => h.sourceId === sourceId && (h.finished || h.pct >= 90));
+async function logEvent(type, data) {
+  const ev = { type, at: new Date().toISOString(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone, ...(R.meta ? docInfo(R.meta) : {}), ...data };
+  try { await idb.put('outbox', ev); } catch {}
+  flushSync();
+}
+let flushing = false;
+async function flushSync() {
+  if (flushing || !S.syncUrl || !S.syncKey || !navigator.onLine) return syncStatus();
+  flushing = true;
+  try {
+    const evs = (await idb.all('outbox')).slice(0, 200); if (!evs.length) return;
+    // text/plain = "simple" request: no CORS preflight, which Apps Script can't answer
+    const r = await fetch(S.syncUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ key: S.syncKey, device: navigator.userAgent.slice(0, 120), events: evs }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'rejected');
+    for (const e of evs) await idb.del('outbox', e.n);
+    localStorage.setItem('sr.lastSync', new Date().toISOString());
+    if (evs.length === 200) setTimeout(flushSync, 500);
+  } catch (e) { console.warn('sync failed', e); localStorage.setItem('sr.syncErr', String(e.message || e)); }
+  finally { flushing = false; syncStatus(); }
+}
+async function syncStatus() {
+  const el = $('#syncStatus'); if (!el) return;
+  const q = (await idb.all('outbox').catch(() => [])).length; const last = localStorage.getItem('sr.lastSync');
+  el.textContent = !S.syncUrl || !S.syncKey ? `Not paired · ${q} event${q === 1 ? '' : 's'} waiting` : `${last ? 'Last synced ' + new Date(last).toLocaleString() : 'Not synced yet'} · ${q} waiting${localStorage.getItem('sr.syncErr') && q ? ' · last error: ' + localStorage.getItem('sr.syncErr') : ''}`;
+}
+addEventListener('online', flushSync); setInterval(flushSync, 120000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) flushSync(); });
+(function pair() { // pairing link: …/rsvp-reader/#sync=<script url>&key=<secret>  (query string also accepted)
+  const p = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+  if (p.get('key')) { S.syncKey = p.get('key'); if (p.get('sync')) S.syncUrl = p.get('sync'); saveS(); history.replaceState(null, '', location.pathname); setTimeout(() => { toast('Reading sync paired ✓'); flushSync(); }, 800); }
+})();
+async function exportLog() {
+  const data = { app: 'Swift Read', exported: new Date().toISOString(), history: Object.values(HIST), days: ST.days, library: (await idb.all('meta')).map(({ id, title, author, source, sourceId, count, pos, added, opened }) => ({ id, title, author, source, sourceId, count, pos, added, opened })) };
+  const file = new File([JSON.stringify(data, null, 1)], `swift-read-log-${today()}.json`, { type: 'application/json' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Swift Read reading log' }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* ---------------- Proxied fetch helpers ---------------- */
+async function viaProxies(url, { as = 'text', check = () => true, onProg } = {}) {
+  let lastErr;
+  for (const px of PROXIES) {
+    try {
+      const buf = await fetchWithProgress(px(url), onProg || (() => {}), 45000);
+      const out = as === 'json' ? JSON.parse(new TextDecoder().decode(buf)) : as === 'text' ? new TextDecoder().decode(buf) : buf;
+      if (!check(out)) throw new Error('bad payload'); return out;
+    } catch (e) { lastErr = e; console.warn('proxy failed', e.message); }
+  }
+  throw lastErr || new Error('all proxies failed');
+}
+const CH_API = 'https://www.churchofjesuschrist.org/study/api/v3/language-pages/type/content?lang=eng&uri=';
+const churchPage = (uri) => viaProxies(CH_API + uri, { as: 'json', check: (j) => j && j.content && j.content.body });
+function churchParas(body) {
+  const d = new DOMParser().parseFromString(body, 'text/html');
+  d.querySelectorAll('footer.notes,video,figure,img,.marker,sup,.study-note-ref,.title-number,.kicker,nav,aside').forEach((e) => e.remove());
+  d.querySelectorAll('.verse-number').forEach((e) => e.remove());
+  return htmlToParas(d.body.innerHTML).paras;
+}
+async function findDocBySource(sourceId) { return (await idb.all('meta')).find((m) => m.sourceId === sourceId); }
+
+/* ---------------- Church: Come, Follow Me + General Conference ---------------- */
+const CH = { cfm: null, gc: null };
+const fmtMin = (w) => { const m = Math.max(1, Math.round(w / S.wpm)); return m + ' min'; };
+async function loadChurch() {
+  const y = new Date().getFullYear();
+  try { CH.cfm = await (await fetch(`church/come-follow-me-${y}.json`)).json(); } catch { CH.cfm = null; }
+  try { CH.gc = await (await fetch('church/conference-latest.json')).json(); } catch { CH.gc = null; }
+  renderChurchCard();
+}
+function cfmWeek(offset = 0) {
+  if (!CH.cfm) return null; const d = new Date(); d.setDate(d.getDate() + offset * 7);
+  const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return CH.cfm.weeks.find((w) => w.start <= k && k <= w.end);
+}
+function renderChurchCard() {
+  const box = $('#churchCard'); if (!box) return;
+  const w = cfmWeek(), nx = cfmWeek(1);
+  let h = '';
+  if (w) h += `<div class="cfm"><div class="cfm-k">Come, Follow Me · ${esc(w.dates)}</div><div class="cfm-t">“${esc(w.title)}”</div><div class="cfm-r">${esc(w.reading)}${w.chapters.length ? ' · ' + w.chapters.length + ' chapters' : ''}</div>
+    <div class="cfm-b">${w.chapters.length ? `<button class="btn primary sm" id="cfmRead">Read this week</button>` : ''}<button class="btn sm" id="cfmLesson">Lesson</button></div>
+    ${nx && nx !== w ? `<div class="cfm-next">Next: ${esc(nx.dates)} · ${esc(nx.reading)}</div>` : ''}</div>`;
+  if (CH.gc) h += `<button class="gc-row" id="gcOpen"><div><div class="cfm-k">General Conference</div><div class="gc-t">${esc(CH.gc.conference.replace(/general conference/i, 'General Conference'))}</div><div class="cfm-r">${CH.gc.talks.length} talks · ${CH.gc.talks.filter((t) => isRead(t.id)).length} read</div></div><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>`;
+  box.innerHTML = h; box.style.display = h ? '' : 'none';
+  $('#cfmRead') && ($('#cfmRead').onclick = () => loadScripture(w));
+  $('#cfmLesson') && ($('#cfmLesson').onclick = () => loadChurchDoc({ uri: w.lessonUri, sourceId: 'cfm-lesson-' + CH.cfm.year + '-' + w.week, title: `Come, Follow Me: ${w.title}`, author: w.dates, source: 'cfm' }));
+  $('#gcOpen') && ($('#gcOpen').onclick = openConference);
+}
+function openConference() {
+  showView('gcView'); history.pushState({ v: 'gc' }, '');
+  $('#gcTitle').textContent = CH.gc.conference.replace(/general conference/i, 'General Conference');
+  $('#gcSrc').href = CH.gc.source;
+  let html = '', sess = '';
+  CH.gc.talks.forEach((t, i) => {
+    if (t.session !== sess) { sess = t.session; html += `<h2 class="section-title">${esc(sess)}</h2>`; }
+    const read = isRead(t.id);
+    html += `<button class="talk${read ? ' read' : ''}" data-i="${i}"><div class="gi"><div class="gt">${esc(t.title)}</div><div class="ga">${esc(t.speaker)}</div><div class="gd">${fmtMin(t.words)} at ${S.wpm} wpm${t.audio ? ' · 🎧 audio' : ''}</div></div>${read ? '<span class="check">✓</span>' : ''}</button>`;
+  });
+  $('#gcList').innerHTML = html;
+  $$('#gcList .talk').forEach((b) => (b.onclick = () => { const t = CH.gc.talks[+b.dataset.i]; loadChurchDoc({ uri: t.uri, sourceId: t.id, title: t.title, author: t.speaker, source: 'general-conference', audio: t.audio }); }));
+}
+async function loadChurchDoc({ uri, sourceId, title, author, source, audio }) {
+  const ex = await findDocBySource(sourceId); if (ex) return openDoc(ex.id);
+  showLoading('Loading “' + title + '”…');
+  try {
+    const j = await churchPage(uri); const paras = churchParas(j.content.body);
+    const id = await addDoc({ title, author, source, sourceId, audio, type: 'talk', text: paras.join('\n\n'), chapters: [] });
+    hideLoading(); openDoc(id);
+  } catch (e) { console.error(e); hideLoading(); toast('Couldn’t load that from churchofjesuschrist.org right now. Please try again shortly.'); }
+}
+async function loadScripture(w) {
+  const sid = 'cfm-' + CH.cfm.year + '-' + w.week; const ex = await findDocBySource(sid); if (ex) return openDoc(ex.id);
+  showLoading('Loading ' + w.reading + '…'); const paras = [], chapters = [];
+  try {
+    for (const [k, c] of w.chapters.entries()) {
+      $('#loadingText').textContent = `Loading ${c.book} ${c.chapter} (${k + 1} of ${w.chapters.length})…`;
+      let verses;
+      if (c.vol === 'ot') {
+        // public-domain KJV from bible-api.com (sends CORS headers); church site via proxy as fallback
+        try {
+          const r = await fetch(`https://bible-api.com/${encodeURIComponent(c.book + ' ' + c.chapter)}?translation=kjv`); if (!r.ok) throw new Error(r.status);
+          verses = (await r.json()).verses.map((v) => v.text.replace(/\s+/g, ' ').trim());
+        } catch { verses = churchParas((await churchPage(`/scriptures/${c.vol}/${c.abbr}/${c.chapter}`)).content.body); }
+        if (w.chapters.length > 12) await new Promise((r) => setTimeout(r, 1500)); // bible-api.com allows ~15 requests / 30s
+      } else verses = churchParas((await churchPage(`/scriptures/${c.vol}/${c.abbr}/${c.chapter}`)).content.body);
+      chapters.push({ title: `${c.book} ${c.chapter}`, paraIdx: paras.length });
+      paras.push(`${c.book} ${c.chapter}`, ...verses);
+    }
+    const id = await addDoc({ title: `${w.reading} (${w.dates})`, author: 'Come, Follow Me', source: 'cfm-scripture', sourceId: sid, type: 'kjv', text: paras.join('\n\n'), chapters });
+    hideLoading(); openDoc(id); toast('KJV text · public domain');
+  } catch (e) { console.error(e); hideLoading(); toast('Couldn’t load the scripture text right now. Please try again shortly.'); }
+}
+
+/* ---------------- For you (suggestions.json, maintained by the Reading Guide bot) ---------------- */
+async function loadSuggestions() {
+  try {
+    const r = await fetch('suggestions.json?t=' + Math.floor(Date.now() / 3600e3), { cache: 'no-store' }); const list = await r.json();
+    if (!Array.isArray(list) || !list.length) return;
+    $('#forYou').innerHTML = list.slice(0, 12).map((s, i) => `<button class="feat sug" data-i="${i}">${s.source === 'gutenberg' ? `<img loading="lazy" alt="" src="${cover(s.id)}" onerror="coverErr(this)">` : '<div class="sug-ph">✦</div>'}<span class="ft">${esc(s.title)}</span><span class="fa">${esc(s.author || '')}${s.minutes ? ' · ' + s.minutes + ' min' : ''}</span>${s.why ? `<span class="fn">${esc(s.why)}</span>` : ''}</button>`).join('');
+    $('#forYouWrap').style.display = '';
+    $$('#forYou .sug').forEach((b) => (b.onclick = () => { const s = list[+b.dataset.i];
+      if (s.source === 'gutenberg' && s.id) { openGutenberg(); showBook(+s.id); }
+      else if (s.source === 'general-conference' && CH.gc) { const t = CH.gc.talks.find((t) => t.id === s.id); if (t) loadChurchDoc({ uri: t.uri, sourceId: t.id, title: t.title, author: t.speaker, source: 'general-conference', audio: t.audio }); }
+      else if (s.url) window.open(s.url, '_blank'); }));
+  } catch (e) { console.warn('suggestions', e); }
 }
 
 /* ---------------- Library ---------------- */
@@ -246,12 +612,12 @@ async function openDoc(id) {
   R.sentStart = []; R.words.forEach((w, i) => { if (!i || w.s !== R.words[i - 1].s) R.sentStart[w.s] = i; });
   R.i = Math.min(meta.pos || 0, R.words.length - 1);
   if (R.i >= R.words.length - 1) R.i = 0;
-  meta.opened = Date.now(); idb.put('meta', meta);
+  meta.opened = Date.now(); idb.put('meta', meta); histOpen(meta);
   $('#docTitle').textContent = meta.title;
   $('#chaptersBtn').style.display = R.chapters.length > 1 ? '' : 'none';
   showView('readerView');
   history.pushState({ v: 'reader' }, '');
-  render(); showContext();
+  render(); showContext(); prepareAudio(meta);
   $('#tapHint').textContent = R.i > 0 ? 'Tap to resume' : 'Tap to play';
 }
 function showView(id) { $$('.view').forEach((v) => v.classList.toggle('active', v.id === id)); }
@@ -295,24 +661,25 @@ function tick() {
   const chunk = chunkAt(R.i);
   R.timer = setTimeout(() => {
     countWords(chunk.length);
-    if (R.i + chunk.length >= R.words.length) { R.i = R.words.length - 1; render(); pause(); toast('Finished ✨'); return; }
+    if (R.i + chunk.length >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; }
     R.i += chunk.length; render(); savePos(); tick();
   }, delayFor(chunk));
 }
 function play() {
   if (R.playing || !R.words.length) return;
   if (R.i >= R.words.length - 1) R.i = 0;
-  R.playing = true; R.rampN = 0; R.sessionStart = performance.now();
+  R.playing = true; R.rampN = 0; R.sessionStart = performance.now(); R.sessionWords = 0; R.sessionAt = new Date().toISOString();
   document.body.classList.add('playing'); $('#readerView').classList.add('reading'); hideContext();
-  if (R.narr) speakFrom(R.i); else tick();
+  if (R.audio) audioPlay(); else if (R.narr) speakFrom(R.i); else tick();
   wakeLock(true);
 }
 function pause() {
   if (!R.playing) return;
   R.playing = false; clearTimeout(R.timer);
   if (R.narr) { R.utterGen++; speechSynthesis.cancel(); }
+  if (R.audio) { AU.pause(); cancelAnimationFrame(auRaf); }
   document.body.classList.remove('playing'); $('#readerView').classList.remove('reading');
-  addTime(performance.now() - R.sessionStart);
+  addTime(performance.now() - R.sessionStart); histSession(performance.now() - R.sessionStart);
   savePos(true); showContext(); wakeLock(false);
   $('#tapHint').textContent = 'Tap to resume';
 }
@@ -333,6 +700,46 @@ function setWpm(v, persist = true) {
   S.wpm = Math.max(100, Math.min(1000, Math.round(v / 5) * 5));
   $('#wpm').value = S.wpm; $('#wpmLabel').textContent = S.wpm; $('#wpm').style.setProperty('--fill', ((S.wpm - 100) / 9) + '%');
   if (persist) saveS(); if (R.words.length) updateProgress();
+  if (R.audio) { AU.playbackRate = audioRate(); if (persist && S.wpm / R.baseWpm > MAX_RATE) $('#wpmLabel').textContent = Math.round(R.baseWpm * MAX_RATE) + '*'; }
+}
+
+/* ---------------- Speaker audio synced to RSVP (General Conference talks) ---------------- */
+const AU = new Audio(); AU.preload = 'none'; AU.preservesPitch = true; AU.webkitPreservesPitch = true; AU.mozPreservesPitch = true;
+const MAX_RATE = 2.0; // above ~2x iOS time-stretching gets choppy; cap there
+R.align = null; R.audio = false; R.baseWpm = 150;
+async function prepareAudio(meta) {
+  R.align = null; R.audio = false; $('#audioBtn').style.display = 'none'; AU.pause();
+  if (!meta.audio || !meta.sourceId) return;
+  try {
+    const j = await (await fetch(`talks/${meta.sourceId}.json`)).json();
+    if (j.count !== R.words.length) { console.warn('alignment token mismatch', j.count, R.words.length); return; }
+    R.align = j.t; R.alignEnd = j.end || (j.t[j.t.length - 1] + 400); R.baseWpm = j.wpm || 150;
+    if (AU.src !== meta.audio) AU.src = meta.audio;
+    $('#audioBtn').style.display = '';
+  } catch {}
+}
+function audioRate() { return Math.max(0.5, Math.min(MAX_RATE, S.wpm / R.baseWpm)); }
+function idxAt(ms) { const t = R.align; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } return lo; }
+let auRaf = 0;
+function audioLoop() {
+  if (!R.playing || !R.audio) return;
+  const k = idxAt(AU.currentTime * 1000);
+  if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); }
+  auRaf = requestAnimationFrame(audioLoop);
+}
+function audioPlay() {
+  AU.playbackRate = audioRate(); AU.defaultPlaybackRate = AU.playbackRate;
+  const target = (R.align[R.i] || 0) / 1000; if (Math.abs(AU.currentTime - target) > 0.35) AU.currentTime = target;
+  AU.play().then(() => { cancelAnimationFrame(auRaf); audioLoop(); }).catch((e) => { console.warn(e); toast('Couldn’t start the audio — check your connection.'); pause(); });
+}
+AU.onended = () => { if (R.audio && R.playing) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); } };
+AU.onwaiting = () => R.audio && R.playing && ($('#tapHint').textContent = 'Buffering…');
+function setAudioMode(on) {
+  const was = R.playing; if (was) pause();
+  R.audio = on && !!R.align; if (R.audio && R.narr) setNarr(false);
+  $('#audioBtn').setAttribute('aria-pressed', R.audio);
+  toast(R.audio ? `Speaker audio on · ${audioRate().toFixed(2)}× (speed slider adjusts it)` : 'Speaker audio off');
+  if (was) play();
 }
 
 /* ---------------- Context on pause ---------------- */
@@ -395,7 +802,7 @@ function speakFrom(i) {
 function setNarr(on) {
   if (on && !('speechSynthesis' in window)) return toast('Narration is not supported in this browser');
   const was = R.playing; if (was) pause();
-  R.narr = on; $('#narrateBtn').setAttribute('aria-pressed', on);
+  if (on && R.audio) setAudioMode(false); R.narr = on; $('#narrateBtn').setAttribute('aria-pressed', on);
   toast(on ? 'Narration on — the voice sets the pace' : 'Narration off');
   if (was) play();
 }
@@ -405,7 +812,7 @@ const today = () => { const d = new Date(); return d.getFullYear() + '-' + Strin
 const ST = JSON.parse(localStorage.getItem('sr.stats') || '{"days":{}}');
 const saveST = () => localStorage.setItem('sr.stats', JSON.stringify(ST));
 function day() { return (ST.days[today()] ||= { w: 0, ms: 0 }); }
-function countWords(n) { if (n > 0) { day().w += n; saveST(); } }
+function countWords(n) { if (n > 0) { day().w += n; R.sessionWords = (R.sessionWords || 0) + n; saveST(); } }
 function addTime(ms) { if (ms > 0 && ms < 6 * 3600e3) { day().ms += ms; saveST(); } }
 function streak() {
   let n = 0; const d = new Date(); const key = (x) => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
@@ -425,7 +832,7 @@ async function saveHighlight() {
   if (!R.words.length) return; const s = R.words[R.i].s; const a = R.sentStart[s]; const b = (R.sentStart[s + 1] ?? R.words.length);
   const text = R.words.slice(a, b).map((w) => w.t).join(' ');
   const ex = await idb.byDoc(R.id); if (ex.some((h) => h.word === a)) return toast('Already saved');
-  await idb.put('highlights', { docId: R.id, word: a, text, at: Date.now() });
+  await idb.put('highlights', { docId: R.id, word: a, text, at: Date.now() }); logEvent('highlight', { text });
   toast('Sentence saved ★');
 }
 async function showHighlights() {
@@ -482,16 +889,27 @@ addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; $('#dropOve
 addEventListener('dragover', (e) => e.preventDefault());
 addEventListener('drop', (e) => { e.preventDefault(); dragN = 0; $('#dropOverlay').classList.remove('show'); const f = e.dataTransfer.files[0]; if (f) importFile(f); });
 
-$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { loadVoices(); openSheet('settingsSheet'); };
+$('#gutBtn').onclick = openGutenberg;
+$('#gutBack').onclick = () => history.back(); $('#gcBack').onclick = () => history.back();
+$('#exportBtn').onclick = exportLog;
+$('#syncUrlIn').onchange = (e) => { S.syncUrl = e.target.value.trim(); saveS(); flushSync(); };
+$('#syncKeyIn').onchange = (e) => { S.syncKey = e.target.value.trim(); saveS(); flushSync(); };
+$('#syncNow').onclick = () => { localStorage.removeItem('sr.syncErr'); flushSync(); toast('Syncing…'); };
+$$('#gutTabs button').forEach((b) => (b.onclick = () => { G.mode = b.dataset.m; $$('#gutTabs button').forEach((x) => x.classList.toggle('on', x === b)); $('#gutTopics').style.display = G.mode === 'stories' ? 'none' : ''; $('#gutFeatWrap').style.display = G.mode === 'stories' ? 'none' : ''; G.q = ''; $('#gutSearch').value = ''; gutLoad(true); }));
+let gsT; $('#gutSearch').oninput = (e) => { clearTimeout(gsT); gsT = setTimeout(() => { G.q = e.target.value.trim(); if (!G.q) G.topic = 'Popular'; $$('#gutTopics .chip').forEach((x) => x.classList.toggle('on', !G.q && x.dataset.t === G.topic)); gutLoad(true); }, 450); };
+$('#gutSearchForm').onsubmit = (e) => { e.preventDefault(); clearTimeout(gsT); G.q = $('#gutSearch').value.trim(); $('#gutSearch').blur(); gutLoad(true); };
+$('#gutMain').addEventListener('scroll', (e) => { const m = e.target; if (m.scrollTop + m.clientHeight > m.scrollHeight - 900) gutLoad(false); }, { passive: true });
+new IntersectionObserver((es) => { if (es[0].isIntersecting && G.next && $('#gutView').classList.contains('active')) gutLoad(false); }, { root: $('#gutMain'), rootMargin: '600px' }).observe($('#gutSentinel'));
+$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { loadVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
 $('#statsBtn').onclick = () => { renderStats(); openSheet('statsSheet'); };
 $('#scrim').onclick = closeSheets;
 $$('[data-close]').forEach((b) => (b.onclick = closeSheets));
 $('#backBtn').onclick = () => history.back();
-addEventListener('popstate', () => { if ($('#readerView').classList.contains('active')) closeReader(); });
+addEventListener('popstate', () => { if ($('#readerView').classList.contains('active')) closeReader(); else if ($('#gutView').classList.contains('active') || $('#gcView').classList.contains('active')) { closeSheets(); showView('libraryView'); renderLibrary(); } });
 $('#chaptersBtn').onclick = showChapters;
 $('#hlListBtn').onclick = showHighlights;
 $('#highlightBtn').onclick = saveHighlight;
-$('#narrateBtn').onclick = () => setNarr(!R.narr);
+$('#narrateBtn').onclick = () => setNarr(!R.narr); $('#audioBtn').onclick = () => setAudioMode(!R.audio);
 $('#playBtn').onclick = toggle;
 $('#prevSentBtn').onclick = prevSentence; $('#nextSentBtn').onclick = nextSentence;
 $('#prevWordBtn').onclick = () => seek(R.i - 1, false); $('#nextWordBtn').onclick = () => seek(R.i + 1, false);
@@ -539,6 +957,6 @@ addEventListener('resize', () => { applySettings(); });
 /* ---------------- Boot ---------------- */
 applySettings();
 await document.fonts.ready.catch(() => {});
-renderLibrary();
+renderLibrary(); loadChurch(); loadSuggestions(); flushSync();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__sr = { R, S, idb, importFile }; // test hook
+window.__sr = { R, S, idb, HIST, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook

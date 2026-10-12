@@ -34,11 +34,45 @@
         <button class="btn primary" id="pasteBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Paste text</button>
         <label class="btn" id="fileLabel"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>Open file<input type="file" id="fileInput" accept=".txt,.md,.markdown,.html,.htm,.pdf,.epub,text/plain,text/html,application/pdf,application/epub+zip" hidden></label>
       </div>
+      <button class="btn gut-btn" id="gutBtn"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>Browse Gutenberg<span class="gut-sub">75,000 free classics</span></button>
       <p class="hint">TXT · Markdown · HTML · PDF · EPUB — or drop a file anywhere</p>
+      <div id="forYouWrap" style="display:none"><h2 class="section-title">For you</h2><div class="gut-featured" id="forYou"></div></div>
+      <h2 class="section-title">This week</h2>
+      <div id="churchCard" class="church-card" style="display:none"></div>
       <h2 class="section-title">Library</h2>
       <ul id="libList" class="lib-list"></ul>
       <p id="libEmpty" class="empty">Your library is empty. Paste some text or open a file to begin.</p>
     </main>
+  </section>
+
+  <!-- GUTENBERG -->
+  <section id="gutView" class="view">
+    <header class="topbar">
+      <button class="icon-btn" id="gutBack" aria-label="Library"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="doc-title">Project Gutenberg</div>
+      <div style="width:44px"></div>
+    </header>
+    <main class="lib-main" id="gutMain">
+      <form id="gutSearchForm" class="gut-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" id="gutSearch" placeholder="Search titles or authors" enterkeyhint="search" autocomplete="off"></form>
+      <div class="tabs" id="gutTabs"><button class="on" data-m="books">Books</button><button data-m="stories">Short stories</button></div>
+      <div id="gutFeatWrap"><h2 class="section-title">Featured</h2>
+      <div class="gut-featured" id="gutFeatured"></div></div>
+      <div class="gut-topics" id="gutTopics"></div>
+      <h2 class="section-title" id="gutHeading">Most popular</h2>
+      <ul class="gut-list" id="gutList"></ul>
+      <div id="gutSentinel"></div>
+      <p class="gut-status" id="gutStatus"></p>
+    </main>
+  </section>
+
+  <!-- GENERAL CONFERENCE -->
+  <section id="gcView" class="view">
+    <header class="topbar">
+      <button class="icon-btn" id="gcBack" aria-label="Library"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="doc-title" id="gcTitle">General Conference</div>
+      <div style="width:44px"></div>
+    </header>
+    <main class="lib-main"><div id="gcList"></div><p class="hint">Talks load from <a id="gcSrc" href="https://www.churchofjesuschrist.org/study/general-conference" target="_blank" rel="noopener">churchofjesuschrist.org</a> © Intellectual Reserve, Inc.</p></main>
   </section>
 
   <!-- READER -->
@@ -84,6 +118,7 @@
       </div>
       <div class="extra-row">
         <button class="pill" id="narrateBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Narrate</button>
+        <button class="pill" id="audioBtn" aria-pressed="false" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>Speaker</button>
         <button class="pill" id="highlightBtn"><svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>Save sentence</button>
       </div>
     </footer>
@@ -137,6 +172,10 @@
   </div>
   <div class="set-group"><label>Narration voice</label><select id="voiceSel" class="field"></select>
     <label>Narration rate <span class="val" id="rateVal"></span></label><input type="range" id="rateIn" min="0.5" max="2.5" step="0.1"></div>
+  <div class="set-group"><label>Reading sync (Reading Guide)</label>
+    <input type="url" id="syncUrlIn" class="field" placeholder="Sync script URL (https://script.google.com/…/exec)" autocomplete="off">
+    <input type="password" id="syncKeyIn" class="field" placeholder="Sync key" autocomplete="off" style="margin-top:8px">
+    <div class="sync-row"><span id="syncStatus" class="small-mute"></span><button class="btn sm" id="syncNow">Sync now</button></div></div>
   <div class="set-group kbd-help"><label>Keyboard</label>
     <p><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> sentence · <kbd>↑</kbd><kbd>↓</kbd> speed · <kbd>,</kbd><kbd>.</kbd> word · <kbd>S</kbd> save sentence · <kbd>Esc</kbd> back</p></div>
   <div class="sheet-actions"><button class="btn primary" data-close>Done</button></div>
@@ -147,7 +186,10 @@
 <div class="sheet" id="statsSheet" role="dialog" aria-label="Stats"><div class="grab"></div><h3>Your reading</h3>
   <div class="stats-grid" id="statsGrid"></div>
   <div class="week" id="weekChart"></div>
-  <div class="sheet-actions"><button class="btn primary" data-close>Done</button></div></div>
+  <div class="sheet-actions"><button class="btn" id="exportBtn">Export reading log</button><button class="btn primary" data-close>Done</button></div></div>
+
+<div class="sheet" id="bookSheet" role="dialog" aria-label="Book"><div class="grab"></div><div id="bookBody"></div>
+  <div class="sheet-actions"><button class="btn" data-close>Close</button><button class="btn primary" id="bookAdd">Add to library</button></div></div>
 
 <div class="toast" id="toast"></div>
 <div class="drop-overlay" id="dropOverlay">Drop to import</div>
