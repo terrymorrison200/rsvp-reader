@@ -2,7 +2,10 @@
 const ORIGIN = 'https://terrymorrison200.github.io';
 const MAX_CHARS = 10000;
 const cors = (h = {}) => ({ 'Access-Control-Allow-Origin': ORIGIN, 'Access-Control-Allow-Headers': 'Content-Type, X-SR-Token', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Expose-Headers': 'X-SR-Budget-Remaining', 'Vary': 'Origin', ...h });
-const err = (status, msg) => new Response(msg, { status, headers: cors({ 'Content-Type': 'text/plain' }) });
+const CODES = { 400: 'bad_request', 401: 'bad_token', 403: 'origin_not_allowed', 404: 'not_found', 413: 'too_long', 429: 'budget_reached', 502: 'upstream_error' };
+const err = (status, message, code = CODES[status] || 'error', extra = {}) => new Response(JSON.stringify({ error: { code, message } }), { status, headers: cors({ 'Content-Type': 'application/json', ...extra }) });
+const sha = async (t) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const DEDUPE_SECONDS = 600; // identical text+voice within 10 min is served from cache (no credits)
 const day = () => new Date().toISOString().slice(0, 10);
 
 export default {
@@ -27,16 +30,25 @@ export default {
       if (!text) return err(400, 'no text');
       if (text.length > MAX_CHARS) return err(413, `max ${MAX_CHARS} characters per request`);
       if (!/^[A-Za-z0-9]{10,40}$/.test(voice)) return err(400, 'bad voice id');
+      const cacheKey = new Request(`https://relay.cache/tts/${await sha(voice + '|' + text)}`);
+      const hit = await caches.default.match(cacheKey);
+      if (hit) return new Response(hit.body, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
       const limit = +(env.DAILY_CHAR_BUDGET || 120000); const key = 'chars:' + day();
       const used = +((await env.BUDGET.get(key)) || 0);
-      if (used + text.length > limit) return new Response('daily character budget reached', { status: 429, headers: cors({ 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) }) });
-      ctx.waitUntil(env.BUDGET.put(key, String(used + text.length), { expirationTtl: 3 * 86400 }));
+      if (used + text.length > limit) return err(429, 'daily character budget reached', 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
       const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_128`, {
         method: 'POST', headers: { 'xi-api-key': env.ELEVENLABS_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, model_id: 'eleven_flash_v2_5' }),
       });
-      // stream straight through (no parsing) to stay within the free tier's CPU limit
-      return new Response(r.body, { status: r.status, headers: cors({ 'Content-Type': 'application/json', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
+      if (!r.ok) {
+        const raw = await r.text(); let d = {}; try { d = JSON.parse(raw).detail || {}; } catch {}
+        const code = String(d.status || d.code || 'upstream_error'); const quota = /quota|credit/i.test(code + ' ' + (d.message || ''));
+        return err(quota ? 429 : r.status === 401 ? 502 : r.status, quota ? 'ElevenLabs credits used up' : String(d.message || raw).slice(0, 200), quota ? 'quota_exceeded' : code);
+      }
+      ctx.waitUntil(env.BUDGET.put(key, String(used + text.length), { expirationTtl: 3 * 86400 }));
+      const [a, b] = r.body.tee();
+      ctx.waitUntil(caches.default.put(cacheKey, new Response(b, { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${DEDUPE_SECONDS}` } })));
+      return new Response(a, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
     }
     return err(404, 'not found');
   },

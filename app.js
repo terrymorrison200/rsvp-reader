@@ -1,4 +1,4 @@
-const APP_VER = 'v12';
+const APP_VER = 'v13';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -933,7 +933,7 @@ function setNarr(on) {
 
 /* ---------------- ElevenLabs narration via relay (optional) ---------------- */
 const EL_DEFAULT = 'EXAVITQu4vr4xnSDxMaL'; // "Sarah" premade voice (American)
-const EL = { voices: [], gen: 0, cur: null, raf: 0, pending: new Map(), remaining: null };
+const EL = { voices: [], gen: 0, cur: null, raf: 0, pending: new Map(), ctls: new Set(), remaining: null, off: false };
 const EA = new Audio(); EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.mozPreservesPitch = true;
 // iOS Safari only lets an <audio> element start from a user gesture. ElevenLabs audio arrives async,
 // so play a tiny silent WAV on the same element during the tap; later play() calls are then allowed.
@@ -944,7 +944,7 @@ function elUnlock() { if (EA._unlocked) return; try { EA.src = SILENT_WAV; const
 const voiceQ = (v) => (/enhanced|premium|neural|siri|natural/i.test(v.name) ? 1 : 0);
 const relayBase = () => (S.relayUrl || '').trim().replace(/\/+$/, '');
 const elReady = () => !!(relayBase() && S.relayToken);
-const isEleven = () => elReady() && String(S.voice).startsWith('eleven:');
+const isEleven = () => elReady() && !EL.off && String(S.voice).startsWith('eleven:');
 const elVoice = () => String(S.voice).slice(7) || EL_DEFAULT;
 const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
 async function elLoadVoices() {
@@ -961,7 +961,7 @@ const elUse = () => JSON.parse(localStorage.getItem('sr.elChars') || '{"total":0
 function elCount(n) { const u = elUse(); u.total += n; u.days[today()] = (u.days[today()] || 0) + n; localStorage.setItem('sr.elChars', JSON.stringify(u)); const el = $('#elUsage'); if (el) el.textContent = elUsageText(); }
 function elUsageText() { const u = elUse(); return `ElevenLabs characters · today ${(u.days[today()] || 0).toLocaleString()} · total ${u.total.toLocaleString()}${EL.remaining != null ? ` · relay budget left today ${(+EL.remaining).toLocaleString()}` : ''}`; }
 // Split the document into ~3,000-char chunks at sentence boundaries (hard max 4,000). Deterministic per doc so cache keys stay stable.
-function elChunks(words = R.words, target = 3000, max = 4000) {
+function elChunks(words = R.words, target = 350, max = 550) {
   if (R.elChunksFor === words && R.elChunks) return R.elChunks;
   const out = []; let w0 = 0, len = 0;
   for (let k = 0; k < words.length; k++) {
@@ -980,39 +980,58 @@ function elWordTimes(al, nWords) {
   if (t.length !== nWords) { console.warn('alignment word mismatch', t.length, nWords); return { t: Array.from({ length: nWords }, (_, k) => (k / nWords) * end), end }; }
   return { t, end };
 }
-function elGet(ci, prefetch = false) {
-  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const k = `${R.id}|${ci}|${voice}`;
+// FNV-1a text hash: cache by voice + exact text, so replays / re-opens never re-bill.
+const hashT = (t) => { let h = 0x811c9dc5; for (let k = 0; k < t.length; k++) { h ^= t.charCodeAt(k); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + '.' + t.length; };
+// Turn a relay/ElevenLabs error into a short message; mark quota errors.
+async function elErr(r) {
+  const raw = await r.text().catch(() => ''); let j = null; try { j = JSON.parse(raw); } catch {}
+  const d = (j && (j.detail || j.error || j)) || {}; const code = String(d.status || d.code || '').toLowerCase();
+  const e = new Error(d.message || (typeof d === 'string' ? d : raw.slice(0, 120)) || 'relay ' + r.status);
+  if (/quota|credit/.test(code + ' ' + e.message) || r.status === 429) { e.quota = true; e.message = /budget/.test(raw) ? 'Daily ElevenLabs budget reached' : 'ElevenLabs credits used up'; }
+  return e;
+}
+// One network request at a time; aborted on pause/seek/voice change (elStop).
+async function elTTS(text, voice, k, extra = {}) {
+  const hit = await idb.get('tts', k).catch(() => null); if (hit) return hit;
   if (EL.pending.has(k)) return EL.pending.get(k);
+  const ctl = new AbortController(); EL.ctls.add(ctl);
   const p = (async () => {
-    const hit = await idb.get('tts', k).catch(() => null); if (hit) return hit;
-    const text = R.words.slice(w0, w1).map((w) => w.t).join(' ');
-    const r = await relayFetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: voice }) });
+    const r = await relayFetch('/tts', { method: 'POST', signal: ctl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: voice }) });
     if (r.headers.get('X-SR-Budget-Remaining') != null) EL.remaining = r.headers.get('X-SR-Budget-Remaining');
-    if (!r.ok) throw new Error((await r.text().catch(() => '')).slice(0, 160) || 'relay ' + r.status);
+    if (!r.ok) throw await elErr(r);
     const j = await r.json(); elCount(text.length);
     const bin = Uint8Array.from(atob(j.audio_base64), (c) => c.charCodeAt(0));
-    const rec = { k, doc: R.id, ci, voice, w0, w1, audio: new Blob([bin], { type: 'audio/mpeg' }), ...elWordTimes(j.alignment || j.normalized_alignment, w1 - w0), at: Date.now() };
+    const rec = { k, voice, audio: new Blob([bin], { type: 'audio/mpeg' }), al: j.alignment || j.normalized_alignment, at: Date.now(), ...extra };
     await idb.put('tts', rec).catch((e) => console.warn('tts cache', e));
     return rec;
   })();
-  EL.pending.set(k, p); p.catch(() => {}).finally(() => EL.pending.delete(k));
+  EL.pending.set(k, p); p.catch(() => {}).finally(() => { EL.pending.delete(k); EL.ctls.delete(ctl); });
   return p;
 }
+async function elGet(ci, prefetch = false) {
+  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const text = R.words.slice(w0, w1).map((w) => w.t).join(' ');
+  const k = `v2|${voice}|${hashT(text)}`;
+  if (prefetch && EL.pending.size) return null; // never run two requests at once
+  const rec = await elTTS(text, voice, k);
+  return { ...rec, ci, w0, w1, ...elWordTimes(rec.al, w1 - w0) };
+}
 const elRate = () => { const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
-function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); }
+function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
+// Out of credits: say so once, then carry on with the device voice.
+function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the iPhone voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
 async function elFrom(i) {
   const gen = ++EL.gen; const chunks = elChunks(); const ci = chunks.findIndex(([a, b]) => i >= a && i < b); if (ci < 0) return;
   $('#tapHint').textContent = 'Loading voice…';
-  let rec; try { rec = await elGet(ci); } catch (e) { if (gen === EL.gen) { toast('ElevenLabs: ' + (e.message || e)); pause(); } return; }
+  let rec; try { rec = await elGet(ci); } catch (e) { if (gen !== EL.gen || e.name === 'AbortError') return; if (e.quota) return elQuota(e.message, i); toast('ElevenLabs: ' + String(e.message || e).slice(0, 80)); pause(); return; }
   if (gen !== EL.gen || !R.playing) return;
   EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
   await new Promise((r) => (EA.readyState >= 1 ? r() : EA.addEventListener('loadedmetadata', r, { once: true })));
   EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
-  if (ci + 1 < chunks.length) elGet(ci + 1, true).catch((e) => console.warn('prefetch', e));
+  let pre = false;
   EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos(); elFrom(rec.w1); };
   try { await EA.play(); } catch (e) { console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
-  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
+  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } if (!pre && ci + 1 < chunks.length && EA.duration && EA.currentTime > EA.duration * 0.6) { pre = true; elGet(ci + 1, true).catch((e) => console.warn('prefetch', e.message)); } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
   loop();
 }
 
@@ -1144,16 +1163,17 @@ $('#sizeIn').oninput = (e) => { S.size = +e.target.value; saveS(); applySettings
 $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySettings(); };
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
-const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — ElevenLabs$/, '') : ''; S.voicePicked = true; saveS(); };
+const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — ElevenLabs$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
 $('#voiceSel').onchange = voicePick; $('#voiceSel').oninput = voicePick;
 $('#voicePreview').onclick = async () => {
-  const b = $('#voicePreview'); const text = 'Hello! This is how I sound in Swift Read.';
+  const b = $('#voicePreview'); const text = 'Hi, I’ll read to you.';
   if (isEleven()) {
     elUnlock(); b.disabled = true; b.textContent = 'Loading…';
-    try { const r = await relayFetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: elVoice() }) }); if (!r.ok) throw new Error((await r.text().catch(() => '')).slice(0, 120) || 'relay ' + r.status);
-      const j = await r.json(); elCount(text.length); if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(new Blob([Uint8Array.from(atob(j.audio_base64), (c) => c.charCodeAt(0))], { type: 'audio/mpeg' })); EA.playbackRate = 1; await EA.play();
-    } catch (e) { toast('Preview failed: ' + (e.message || e)); } finally { b.disabled = false; b.textContent = '▶ Preview'; }
-  } else if ('speechSynthesis' in window) { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); const v = speechSynthesis.getVoices().find((x) => x.voiceURI === S.voice); if (v) { u.voice = v; u.lang = v.lang; } u.rate = S.rate; speechSynthesis.speak(u); }
+    try { const v = elVoice(); const rec = await elTTS(text, v, `pv|${v}|${hashT(text)}`);
+      if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio); EA.playbackRate = 1; await EA.play();
+    } catch (e) { if (e.quota) { EL.off = true; loadVoices(); toast(e.message + ' — using the iPhone voice'); } else toast('Preview failed: ' + String(e.message || e).slice(0, 80)); } finally { b.disabled = false; b.textContent = '▶ Preview'; }
+  }
+  if (!isEleven() && 'speechSynthesis' in window) { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); const v = speechSynthesis.getVoices().find((x) => x.voiceURI === S.voice); if (v) { u.voice = v; u.lang = v.lang; } u.rate = S.rate; speechSynthesis.speak(u); }
 };
 const relayIn = () => { S.relayUrl = $('#relayUrlIn').value.trim(); S.relayToken = $('#relayTokIn').value.trim(); saveS(); EL.voices = []; if (!elReady() && String(S.voice).startsWith('eleven:')) { S.voice = ''; saveS(); }
   if (elReady() && !isEleven() && !S.voicePicked) { S.voice = 'eleven:' + EL_DEFAULT; S.elAuto = true; saveS(); if (!R.narr) { R.narr = true; $('#narrateBtn').setAttribute('aria-pressed', true); } toast('ElevenLabs connected — narration will use an ElevenLabs voice'); }
