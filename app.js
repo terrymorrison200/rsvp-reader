@@ -275,7 +275,7 @@ const FEATURED = [
   { id: 98, title: 'A Tale of Two Cities', author: 'Charles Dickens' },
 ];
 const TOPICS = ['Popular', 'Fiction', 'Adventure', 'Romance', 'Mystery', 'Science Fiction', 'Philosophy', 'History', 'Poetry', 'Children', 'Short Stories', 'Gothic'];
-let STORYW = {}, STORYJ = null; fetch('stories.json').then((r) => r.json()).then((j) => { STORYJ = j; STORYW = j.words || {}; }).catch(() => {});
+let STORYW = {}, STORYJ = null; const storyP = fetch('stories.json').then((r) => r.json()).then((j) => { STORYJ = j; STORYW = j.words || {}; }).catch(() => {});
 const G = { mode: 'books', q: '', topic: 'Popular', next: null, loading: false, gen: 0, cache: {} };
 const cover = (id) => `https://www.gutenberg.org/cache/epub/${id}/pg${id}.cover.medium.jpg`;
 window.coverErr = (img) => { if (!img.dataset.f && /gutenberg\.org\/cache/.test(img.src)) { img.dataset.f = 1; img.src = img.src.replace('www.gutenberg.org', 'gutenberg.pglaf.org'); } else img.style.visibility = 'hidden'; };
@@ -290,7 +290,7 @@ function openGutenberg() {
     $('#gutTopics').innerHTML = TOPICS.map((t) => `<button class="chip${t === G.topic ? ' on' : ''}" data-t="${t}">${t}</button>`).join('');
     $$('#gutTopics .chip').forEach((b) => (b.onclick = () => { G.topic = b.dataset.t; G.q = ''; $('#gutSearch').value = ''; $$('#gutTopics .chip').forEach((x) => x.classList.toggle('on', x === b)); gutLoad(true); }));
   }
-  if (!$('#gutList').children.length) gutLoad(true);
+  if (!$('#gutList').children.length) storyP.finally(() => gutLoad(true));
 }
 function renderFeatured() {
   $('#gutFeatured').innerHTML = FEATURED.map((f) => `<button class="feat" data-id="${f.id}"><img loading="lazy" alt="" src="${cover(f.id)}" onerror="coverErr(this)"><span class="ft">${esc(f.title)}</span><span class="fa">${esc(f.author)}</span>${f.note ? `<span class="fn">${esc(f.note)}</span>` : ''}</button>`).join('');
@@ -317,9 +317,10 @@ async function gutLoad(reset) {
   } else url = G.next;
   if (!url) { G.loading = false; return; }
   if (reset && G.mode === 'stories' && !G.q && STORYJ?.books?.length) url = 'bundled:';
+  if (reset && G.mode !== 'stories' && !G.q && G.topic === 'Popular' && STORYJ?.popular?.length) url = 'bundled-pop:';
   $('#gutStatus').textContent = reset && /search=|topic=/.test(url) ? 'Searching the catalogue — first searches can take up to a minute…' : 'Loading…'; $('#gutStatus').className = 'gut-status loading';
   try {
-    let d = url === 'bundled:' ? { results: STORYJ.books, next: STORYJ.next } : await gutJSON(url); if (gen !== G.gen) return;
+    let d = url === 'bundled:' ? { results: STORYJ.books, next: STORYJ.next } : url === 'bundled-pop:' ? { results: STORYJ.popular, next: STORYJ.popularNext } : await gutJSON(url); if (gen !== G.gen) return;
     if (reset && G.q) {
       // Gutendex search is accent-sensitive ("Miserables" ≠ "Misérables"): pin local featured matches, and retry with a shorter prefix
       const fq = fold(G.q); const pins = FEATURED.filter((f) => fold(f.title + ' ' + f.author).includes(fq) || fq.split(' ').every((w) => fold(f.title + ' ' + f.author).includes(w)));

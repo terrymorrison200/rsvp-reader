@@ -21,5 +21,10 @@ for b in books:
     except Exception as ex: print('fail', k, ex, file=sys.stderr)
 res['books'] = [{'id': b['id'], 'title': b['title'], 'authors': [{'name': a['name']} for a in b['authors']], 'download_count': b['download_count'], 'formats': {'image/jpeg': b['formats'].get('image/jpeg', '')}, 'subjects': b.get('subjects', [])[:6], 'bookshelves': b.get('bookshelves', [])[:4], 'translators': b.get('translators', [])} for b in books]
 res['next'] = url
+slim = lambda b: {'id': b['id'], 'title': b['title'], 'authors': [{'name': a['name']} for a in b['authors']], 'download_count': b['download_count'], 'formats': {'image/jpeg': b['formats'].get('image/jpeg', '')}, 'subjects': b.get('subjects', [])[:6], 'bookshelves': b.get('bookshelves', [])[:4], 'translators': b.get('translators', [])}
+pop = []; u = 'https://gutendex.com/books/?languages=en'
+for _ in range(2):
+    d = json.loads(get(u)); pop += [slim(b) for b in d['results']]; u = d['next']
+res['popular'] = pop; res['popularNext'] = u
 res['generated'] = datetime.date.today().isoformat(); res['source'] = 'Project Gutenberg plain-text files via Gutendex topic "short stories"'
 json.dump(res, open(out, 'w'))
