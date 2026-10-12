@@ -263,3 +263,4 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 .jn-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap;gap:8px}
 .hint.center{text-align:center}
 .lib-main .gut-btn{margin-top:10px}
+.el-relay>summary{font-size:13px;color:var(--mute);font-weight:600;cursor:pointer;letter-spacing:.3px}

@@ -190,6 +190,10 @@
   </div>
   <div class="set-group"><label>Narration voice</label><select id="voiceSel" class="field"></select>
     <label>Narration rate <span class="val" id="rateVal"></span></label><input type="range" id="rateIn" min="0.5" max="2.5" step="0.1"></div>
+  <details class="set-group el-relay"><summary>ElevenLabs voices (optional)</summary>
+    <input type="url" id="relayUrlIn" class="field" placeholder="Relay URL (https://…workers.dev)" autocomplete="off" style="margin-top:8px">
+    <input type="password" id="relayTokIn" class="field" placeholder="Relay token" autocomplete="off">
+    <p class="small-mute" id="elUsage"></p></details>
   <div class="set-group"><label>Reading sync (Reading Guide)</label>
     <input type="url" id="syncUrlIn" class="field" placeholder="Sync script URL (https://script.google.com/…/exec)" autocomplete="off">
     <input type="password" id="syncKeyIn" class="field" placeholder="Sync key" autocomplete="off" style="margin-top:8px">

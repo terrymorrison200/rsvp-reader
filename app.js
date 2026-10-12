@@ -4,7 +4,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 /* ---------------- IndexedDB ---------------- */
 const db = await new Promise((res, rej) => {
-  const r = indexedDB.open('swiftread', 4);
+  const r = indexedDB.open('swiftread', 5);
   r.onupgradeneeded = () => {
     const d = r.result; const has = (n) => d.objectStoreNames.contains(n);
     if (!has('docs')) d.createObjectStore('docs', { keyPath: 'id' });
@@ -12,6 +12,7 @@ const db = await new Promise((res, rej) => {
     if (!has('highlights')) { const h = d.createObjectStore('highlights', { keyPath: 'id', autoIncrement: true }); h.createIndex('doc', 'docId'); }
     if (!has('journals')) d.createObjectStore('journals', { keyPath: 'id' });
     if (!has('jentries')) d.createObjectStore('jentries', { keyPath: 'id' });
+    if (!has('tts')) d.createObjectStore('tts', { keyPath: 'k' });
     if (!has('outbox')) d.createObjectStore('outbox', { keyPath: 'n', autoIncrement: true });
   };
   r.onsuccess = () => res(r.result);
@@ -30,7 +31,7 @@ const idb = {
 };
 
 /* ---------------- Settings ---------------- */
-const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1 };
+const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '' };
 const S = Object.assign({}, DEF, JSON.parse(localStorage.getItem('sr.settings') || '{}'));
 const saveS = () => localStorage.setItem('sr.settings', JSON.stringify(S));
 const FONTS = { inter: 'Inter,system-ui,sans-serif', literata: 'Literata,Georgia,serif', mono: 'JBMono,ui-monospace,monospace', dyslexic: 'OpenDyslexic,Inter,sans-serif' };
@@ -403,6 +404,7 @@ async function addGutenberg(b) {
   const txtSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.txt`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`];
   const epubSrc = [`https://gutenberg.pglaf.org/cache/epub/${id}/pg${id}.epub`, `https://www.gutenberg.org/cache/epub/${id}/pg${id}.epub`];
   const attempts = [['txt', `books/${id}.txt`]];
+  const RL = relayBase(); if (RL) attempts.push(['txt', `${RL}/gutenberg?id=${id}&type=txt`], ['epub', `${RL}/gutenberg?id=${id}&type=epub`]);
   const ft = b.formats?.['text/plain; charset=utf-8'] || b.formats?.['text/plain; charset=us-ascii'] || b.formats?.['text/plain'];
   const fe = b.formats?.['application/epub+zip'];
   if (ft && !txtSrc.includes(ft)) txtSrc.push(ft); if (fe && !epubSrc.includes(fe)) epubSrc.push(fe);
@@ -772,7 +774,7 @@ function play() {
 function pause() {
   if (!R.playing) return;
   R.playing = false; clearTimeout(R.timer);
-  if (R.narr) { R.utterGen++; speechSynthesis.cancel(); }
+  if (R.narr) { R.utterGen++; if ('speechSynthesis' in window) speechSynthesis.cancel(); elStop(); }
   if (R.audio) { AU.pause(); cancelAnimationFrame(auRaf); }
   document.body.classList.remove('playing'); $('#readerView').classList.remove('reading');
   addTime(performance.now() - R.sessionStart); histSession(performance.now() - R.sessionStart);
@@ -796,6 +798,7 @@ function setWpm(v, persist = true) {
   S.wpm = Math.max(100, Math.min(1000, Math.round(v / 5) * 5));
   $('#wpm').value = S.wpm; $('#wpmLabel').textContent = S.wpm; $('#wpm').style.setProperty('--fill', ((S.wpm - 100) / 9) + '%');
   if (persist) saveS(); if (R.words.length) updateProgress();
+  if (R.narr && isEleven()) EA.playbackRate = elRate();
   if (R.audio) { AU.playbackRate = audioRate(); if (persist && S.wpm / R.baseWpm > MAX_RATE) $('#wpmLabel').textContent = Math.round(R.baseWpm * MAX_RATE) + '*'; }
 }
 
@@ -860,13 +863,18 @@ const hideContext = () => $('#contextBox').classList.remove('show');
 /* ---------------- Narration ---------------- */
 R.utterGen = 0;
 function loadVoices() {
-  const vs = speechSynthesis.getVoices(); const sel = $('#voiceSel');
-  if (!vs.length) { sel.innerHTML = '<option>System default</option>'; return; }
-  const sorted = [...vs].sort((a, b) => (b.lang.startsWith(navigator.language.slice(0, 2)) - a.lang.startsWith(navigator.language.slice(0, 2))) || a.name.localeCompare(b.name));
-  sel.innerHTML = sorted.map((v) => `<option value="${v.voiceURI}">${v.name} (${v.lang})${v.localService ? '' : ' ☁'}</option>`).join('');
-  if (S.voice && vs.some((v) => v.voiceURI === S.voice)) sel.value = S.voice;
+  const vs = 'speechSynthesis' in window ? speechSynthesis.getVoices() : []; const sel = $('#voiceSel');
+  const lang = navigator.language.slice(0, 2);
+  const sorted = [...vs].sort((a, b) => (voiceQ(b) - voiceQ(a)) || (b.lang.startsWith(lang) - a.lang.startsWith(lang)) || a.name.localeCompare(b.name));
+  const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
+  let html = vs.length ? sorted.map((v) => opt(v.voiceURI, `${v.name} (${v.lang})${voiceQ(v) ? ' ★' : ''}${v.localService ? '' : ' ☁'}`)).join('') : opt('', 'System default');
+  if (elReady()) { const el = EL.voices.length ? EL.voices : [{ voice_id: EL_DEFAULT, name: 'Rachel' }]; html += `<optgroup label="ElevenLabs">${el.map((v) => opt('eleven:' + v.voice_id, v.name + ' · ElevenLabs')).join('')}</optgroup>`; if (!EL.voices.length) elLoadVoices(); }
+  sel.innerHTML = html;
+  if (S.voice && [...sel.options].some((o) => o.value === S.voice)) sel.value = S.voice;
+  $('#elUsage').textContent = elUsageText();
 }
 function speakFrom(i) {
+  if (isEleven()) return elFrom(i);
   const gen = ++R.utterGen; const w = R.words[i];
   const end = (R.sentStart[w.s + 1] ?? R.words.length);
   const offsets = []; let text = '';
@@ -896,11 +904,83 @@ function speakFrom(i) {
   speechSynthesis.speak(u);
 }
 function setNarr(on) {
-  if (on && !('speechSynthesis' in window)) return toast('Narration is not supported in this browser');
+  if (on && !('speechSynthesis' in window) && !isEleven()) return toast('Narration is not supported in this browser');
   const was = R.playing; if (was) pause();
   if (on && R.audio) setAudioMode(false); R.narr = on; $('#narrateBtn').setAttribute('aria-pressed', on);
   toast(on ? 'Narration on — the voice sets the pace' : 'Narration off');
   if (was) play();
+}
+
+/* ---------------- ElevenLabs narration via relay (optional) ---------------- */
+const EL_DEFAULT = '21m00Tcm4TlvDq8ikWAM'; // "Rachel" premade voice
+const EL = { voices: [], gen: 0, cur: null, raf: 0, pending: new Map(), remaining: null };
+const EA = new Audio(); EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.mozPreservesPitch = true;
+const voiceQ = (v) => (/enhanced|premium|neural|siri|natural/i.test(v.name) ? 1 : 0);
+const relayBase = () => (S.relayUrl || '').trim().replace(/\/+$/, '');
+const elReady = () => !!(relayBase() && S.relayToken);
+const isEleven = () => elReady() && String(S.voice).startsWith('eleven:');
+const elVoice = () => String(S.voice).slice(7) || EL_DEFAULT;
+const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
+async function elLoadVoices() {
+  try { const j = await (await relayFetch('/voices')).json(); const v = (j.voices || []).map(({ voice_id, name }) => ({ voice_id, name })); if (v.length) { EL.voices = v; loadVoices(); } } catch (e) { console.warn('voices', e); }
+}
+const elUse = () => JSON.parse(localStorage.getItem('sr.elChars') || '{"total":0,"days":{}}');
+function elCount(n) { const u = elUse(); u.total += n; u.days[today()] = (u.days[today()] || 0) + n; localStorage.setItem('sr.elChars', JSON.stringify(u)); const el = $('#elUsage'); if (el) el.textContent = elUsageText(); }
+function elUsageText() { const u = elUse(); return `ElevenLabs characters · today ${(u.days[today()] || 0).toLocaleString()} · total ${u.total.toLocaleString()}${EL.remaining != null ? ` · relay budget left today ${(+EL.remaining).toLocaleString()}` : ''}`; }
+// Split the document into ~3,000-char chunks at sentence boundaries (hard max 4,000). Deterministic per doc so cache keys stay stable.
+function elChunks(words = R.words, target = 3000, max = 4000) {
+  if (R.elChunksFor === words && R.elChunks) return R.elChunks;
+  const out = []; let w0 = 0, len = 0;
+  for (let k = 0; k < words.length; k++) {
+    len += words[k].t.length + 1;
+    const sentEnd = k === words.length - 1 || words[k + 1].s !== words[k].s;
+    if ((sentEnd && len >= target) || len >= max - 60 || k === words.length - 1) { out.push([w0, k + 1]); w0 = k + 1; len = 0; }
+  }
+  if (words === R.words) { R.elChunksFor = words; R.elChunks = out; }
+  return out;
+}
+// Group character timestamps into words: a word starts at each non-space char that follows a space (or the start).
+function elWordTimes(al, nWords) {
+  const ch = al.characters, st = al.character_start_times_seconds, en = al.character_end_times_seconds; const t = [];
+  for (let c = 0; c < ch.length; c++) if (!/\s/.test(ch[c]) && (c === 0 || /\s/.test(ch[c - 1]))) t.push(st[c]);
+  const end = en[en.length - 1] || 0;
+  if (t.length !== nWords) { console.warn('alignment word mismatch', t.length, nWords); return { t: Array.from({ length: nWords }, (_, k) => (k / nWords) * end), end }; }
+  return { t, end };
+}
+function elGet(ci, prefetch = false) {
+  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const k = `${R.id}|${ci}|${voice}`;
+  if (EL.pending.has(k)) return EL.pending.get(k);
+  const p = (async () => {
+    const hit = await idb.get('tts', k).catch(() => null); if (hit) return hit;
+    const text = R.words.slice(w0, w1).map((w) => w.t).join(' ');
+    const r = await relayFetch('/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice_id: voice }) });
+    if (r.headers.get('X-SR-Budget-Remaining') != null) EL.remaining = r.headers.get('X-SR-Budget-Remaining');
+    if (!r.ok) throw new Error((await r.text().catch(() => '')).slice(0, 160) || 'relay ' + r.status);
+    const j = await r.json(); elCount(text.length);
+    const bin = Uint8Array.from(atob(j.audio_base64), (c) => c.charCodeAt(0));
+    const rec = { k, doc: R.id, ci, voice, w0, w1, audio: new Blob([bin], { type: 'audio/mpeg' }), ...elWordTimes(j.alignment || j.normalized_alignment, w1 - w0), at: Date.now() };
+    await idb.put('tts', rec).catch((e) => console.warn('tts cache', e));
+    return rec;
+  })();
+  EL.pending.set(k, p); p.catch(() => {}).finally(() => EL.pending.delete(k));
+  return p;
+}
+const elRate = () => { const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
+function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); }
+async function elFrom(i) {
+  const gen = ++EL.gen; const chunks = elChunks(); const ci = chunks.findIndex(([a, b]) => i >= a && i < b); if (ci < 0) return;
+  $('#tapHint').textContent = 'Loading voice…';
+  let rec; try { rec = await elGet(ci); } catch (e) { if (gen === EL.gen) { toast('ElevenLabs: ' + (e.message || e)); pause(); } return; }
+  if (gen !== EL.gen || !R.playing) return;
+  EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
+  EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
+  await new Promise((r) => (EA.readyState >= 1 ? r() : EA.addEventListener('loadedmetadata', r, { once: true })));
+  EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
+  if (ci + 1 < chunks.length) elGet(ci + 1, true).catch((e) => console.warn('prefetch', e));
+  EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos(); elFrom(rec.w1); };
+  try { await EA.play(); } catch (e) { console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
+  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
+  loop();
 }
 
 /* ---------------- Stats & highlights ---------------- */
@@ -999,7 +1079,7 @@ let gsT; $('#gutSearch').oninput = (e) => { clearTimeout(gsT); gsT = setTimeout(
 $('#gutSearchForm').onsubmit = (e) => { e.preventDefault(); clearTimeout(gsT); G.q = $('#gutSearch').value.trim(); $('#gutSearch').blur(); gutLoad(true); };
 $('#gutMain').addEventListener('scroll', (e) => { const m = e.target; if (m.scrollTop + m.clientHeight > m.scrollHeight - 900) gutLoad(false); }, { passive: true });
 new IntersectionObserver((es) => { if (es[0].isIntersecting && G.next && $('#gutView').classList.contains('active')) gutLoad(false); }, { root: $('#gutMain'), rootMargin: '600px' }).observe($('#gutSentinel'));
-$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { loadVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
+$('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { $('#relayUrlIn').value = S.relayUrl; $('#relayTokIn').value = S.relayToken; loadVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
 $('#statsBtn').onclick = () => { renderStats(); openSheet('statsSheet'); };
 $('#scrim').onclick = closeSheets;
 $$('[data-close]').forEach((b) => (b.onclick = closeSheets));
@@ -1032,8 +1112,11 @@ $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySe
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
 $('#voiceSel').onchange = (e) => { S.voice = e.target.value; saveS(); };
+const relayIn = () => { S.relayUrl = $('#relayUrlIn').value.trim(); S.relayToken = $('#relayTokIn').value.trim(); saveS(); EL.voices = []; if (!elReady() && isEleven()) { S.voice = ''; saveS(); } loadVoices(); };
+$('#relayUrlIn').onchange = relayIn; $('#relayTokIn').onchange = relayIn;
 $('#rateIn').oninput = (e) => { S.rate = +e.target.value; saveS(); $('#rateVal').textContent = S.rate.toFixed(1) + '×'; };
-if ('speechSynthesis' in window) { speechSynthesis.onvoiceschanged = loadVoices; loadVoices(); }
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = loadVoices;
+loadVoices();
 
 addEventListener('keydown', (e) => {
   if (e.target.matches('input[type=text],textarea,select')) return;
@@ -1059,4 +1142,4 @@ applySettings();
 await document.fonts.ready.catch(() => {});
 renderLibrary(); loadChurch(); loadSuggestions(); loadJournals(); flushSync();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
-window.__sr = { R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+window.__sr = { EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook

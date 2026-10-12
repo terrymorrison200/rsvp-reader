@@ -1,0 +1,15 @@
+name = "swiftread-relay"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+# account_id = "<your Cloudflare account id>"   # or set CLOUDFLARE_ACCOUNT_ID in the environment
+
+[vars]
+DAILY_CHAR_BUDGET = "120000"
+
+[[kv_namespaces]]
+binding = "BUDGET"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"   # from: npx wrangler kv namespace create BUDGET
+
+# Secrets are set with `wrangler secret put` — never written here:
+#   SR_TOKEN        shared token the app sends as X-SR-Token
+#   ELEVENLABS_KEY  ElevenLabs API key
