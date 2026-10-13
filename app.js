@@ -1,4 +1,4 @@
-const APP_VER = 'v18';
+const APP_VER = 'v19';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -1206,12 +1206,15 @@ $('#wpm').onchange = (e) => { setWpm(+e.target.value); if (R.playing) revealCont
 // taps on the controls must never reach the reader's tap-to-play/pause
 ['click', 'pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach((ev) => $('#controls').addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
 // while playing on a phone the controls are hidden: a tap in the lower part of the screen reveals them instead of pausing
+// capture phase on the whole reader: the first tap in the controls area while they're hidden only reveals them (no pause, no blind button press)
+let swallowClick = false;
+$('#readerView').addEventListener('pointerdown', (e) => { if (R.playing && $('#readerView').classList.contains('reading') && e.clientY > innerHeight * 0.68) { e.stopPropagation(); swallowClick = true; revealControls(); } }, true);
+$('#readerView').addEventListener('click', (e) => { if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); } }, true);
 let revealT; const revealControls = () => { $('#readerView').classList.remove('reading'); clearTimeout(revealT); revealT = setTimeout(() => R.playing && $('#readerView').classList.add('reading'), 3500); };
 $('#progress').oninput = (e) => { const was = R.playing; if (was) pause(); R.i = Math.round((e.target.value / 1000) * (R.words.length - 1)); render(); showContext(); updateChapLine(R.i, true); };
 $('#progress').onchange = () => savePos(true);
 $('#stage').addEventListener('click', (e) => {
   const w = e.target.closest('#contextBox .w'); if (w) { seek(+w.dataset.i, false); return; }
-  if (R.playing && $('#readerView').classList.contains('reading') && matchMedia('(pointer: coarse)').matches && e.clientY > innerHeight * 0.68) { revealControls(); return; }
   toggle();
 });
 // show controls briefly on mouse move while reading (desktop)
