@@ -271,3 +271,4 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 #controls input[type=range]{touch-action:none;height:44px}
 #controls input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-11px}
 .chip-btn{min-width:44px;min-height:44px;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.reading .tap-hint.busy{opacity:.55;transition:opacity .3s}

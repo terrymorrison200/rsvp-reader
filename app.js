@@ -1,4 +1,4 @@
-const APP_VER = 'v22';
+const APP_VER = 'v23';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -794,7 +794,7 @@ function play() {
   if (R.i >= R.words.length - 1) R.i = 0;
   R.playing = true; R.rampN = 0; R.sessionStart = performance.now(); R.sessionWords = 0; R.sessionAt = new Date().toISOString();
   document.body.classList.add('playing'); $('#readerView').classList.add('reading'); showContext();
-  if (R.narr && isEleven()) elUnlock(); // must run synchronously inside the tap for iOS
+  if (R.narr && isEleven()) { elUnlock(); EL.t0 = performance.now(); } // must run synchronously inside the tap for iOS
   if (R.audio) audioPlay(); else if (R.narr) speakFrom(R.i); else tick();
   wakeLock(true);
 }
@@ -1088,8 +1088,29 @@ async function elTTS(text, voice, k, extra = {}) {
   EL.pending.set(k, p); p.catch(() => {}).finally(() => { EL.pending.delete(k); EL.ctls.delete(ctl); });
   return p;
 }
-async function elGet(ci, prefetch = false) {
-  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const sw = speakWords(w0, w1); const spoken = sw.filter(Boolean);
+// Chunk starting at word i. Google HD ramps up so playback starts fast: 1 sentence ≤150 chars, then ~500, ~1,000,
+// then whole paragraphs up to 1,500 (Chirp latency measured ≈2.4 s / 4.8 s / 26 s+ for 150 / 500 / 1,500 chars).
+// Other voices keep the fixed 1–2 sentence chunks.
+const HD_RAMP = [150, 500, 1000, 1500];
+function chunkFrom(i, level = 0) {
+  if (!isHD()) { const c = elChunks().find(([a, b]) => i >= a && i < b); return c || null; }
+  if (i >= R.words.length) return null;
+  const lim = HD_RAMP[Math.min(level, 3)]; const W = R.words; let w0 = R.sentStart[W[i].s] ?? i; if (level > 0) w0 = i;
+  let k = w0, len = 0, cut = -1;
+  while (k < W.length) {
+    len += W[k].t.length + 1; const last = k === W.length - 1;
+    if (len > lim && cut >= 0) break;
+    const sentEnd = last || W[k + 1].s !== W[k].s, paraEnd = last || W[k + 1].p !== W[k].p;
+    if (sentEnd) cut = k + 1;
+    if (level >= 3 && paraEnd && cut === k + 1) { let nx = 0; for (let j = k + 1; j < W.length && W[j].p === W[k + 1].p; j++) nx += W[j].t.length + 1; if (len + nx > lim) break; }
+    if (len > lim && cut < 0 && len > lim * 1.3) { cut = k + 1; for (let j = k; j > w0 + 3; j--) if (W[j].end === 1) { cut = j + 1; break; } break; } // very long first sentence: cut at a comma
+    if (last) break; k++;
+  }
+  if (cut < 0) cut = k + 1;
+  return [w0, Math.min(cut, W.length)];
+}
+async function elGet(range, prefetch = false) {
+  const [w0, w1] = range; const ci = w0; const voice = elVoice(); const sw = speakWords(w0, w1); const spoken = sw.filter(Boolean);
   if (!spoken.length) return { k: '', audio: new Blob([Uint8Array.from(atob(SILENT_WAV.split(',')[1]), (c) => c.charCodeAt(0))], { type: 'audio/wav' }), ci, w0, w1, t: sw.map(() => 0), end: 0.1 };
   const text = spoken.join(' ');
   const k = `v2|${voice}|${hashT(text)}`;
@@ -1100,25 +1121,29 @@ async function elGet(ci, prefetch = false) {
   return { ...rec, ci, w0, w1, t, end: wt.end };
 }
 const elRate = () => { if (EL.natural) return 1; const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
-function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
+function elStop() { EL.gen++; elHint(false); cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
 // Out of credits: say so once, then carry on with the device voice.
 function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the device voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
-async function elFrom(i) {
-  const gen = ++EL.gen; const chunks = elChunks(); const ci = chunks.findIndex(([a, b]) => i >= a && i < b); if (ci < 0) return;
-  $('#tapHint').textContent = 'Loading voice…';
-  let rec; try { rec = await elGet(ci); } catch (e) { if (gen !== EL.gen || e.name === 'AbortError') return; if (e.code === 'hd_cap' && /Chirp3/.test(curV())) { EL.vo = 'gtts:en-US-Neural2-J'; toast('Google HD limit reached — using Neural2 J'); return elFrom(i); } if (e.quota) return elQuota(e.message, i); toast('ElevenLabs: ' + String(e.message || e).slice(0, 80)); pause(); return; }
+function elHint(on) { const h = $('#tapHint'); if (on) { h.textContent = 'Starting…'; h.classList.add('busy'); } else h.classList.remove('busy'); }
+async function elFrom(i, level = 0) {
+  const gen = ++EL.gen; const range = chunkFrom(i, level); if (!range) return;
+  elHint(true);
+  let rec; try { rec = await elGet(range); } catch (e) { elHint(false); if (gen !== EL.gen || e.name === 'AbortError') return; if (e.code === 'hd_cap' && /Chirp3/.test(curV())) { EL.vo = 'gtts:en-US-Neural2-J'; toast('Google HD limit reached — using Neural2 J'); return elFrom(i); } if (e.quota) return elQuota(e.message, i); toast('Voice: ' + String(e.message || e).slice(0, 80)); pause(); return; }
   if (gen !== EL.gen || !R.playing) return;
   EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
   await new Promise((r) => (EA.readyState >= 1 ? r() : EA.addEventListener('loadedmetadata', r, { once: true })));
   if (rec.est && EA.duration && rec.end) { const f = EA.duration / rec.end; rec.t = rec.t.map((x) => x * f); rec.end = EA.duration; } // estimated (Chirp 3) timings -> real length
   EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
-  let pre = false;
+  const next = chunkFrom(rec.w1, level + 1);
   EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos();
     const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
-    const gap = chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1); }, gap); else elFrom(rec.w1); };
-  try { await EA.play(); } catch (e) { console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
-  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } if (!pre && ci + 1 < chunks.length && EA.duration && EA.currentTime > EA.duration * 0.6) { pre = true; elGet(ci + 1, true).catch((e) => console.warn('prefetch', e.message)); } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
+    const gap = chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
+  try { await EA.play(); } catch (e) { elHint(false); console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
+  elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0;
+  // read-ahead: next chunk starts fetching as soon as this one plays (at most one request in flight)
+  if (next) elGet(next, true).catch((e) => console.warn('prefetch', e.message));
+  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
   loop();
 }
 
