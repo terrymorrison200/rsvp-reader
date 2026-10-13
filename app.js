@@ -1,4 +1,4 @@
-const APP_VER = 'v19';
+const APP_VER = 'v20';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -915,6 +915,7 @@ function loadVoices() {
     let el = EL.voices.length ? [...EL.voices] : [{ voice_id: EL_DEFAULT, name: 'Sarah' }];
     // keep the user's saved voice selectable even before /voices has loaded (or if it fails)
     if (String(S.voice).startsWith('eleven:') && !EL.voices.length && !el.some((v) => 'eleven:' + v.voice_id === S.voice)) el.unshift({ voice_id: elVoice(), name: S.voiceName || 'Saved voice' });
+    if (EL.gOk || isGoogle()) html += `<optgroup label="★ Google HD (most natural)">${GHD.map(([id, n]) => opt('gtts:' + id, '★ ' + n + ' — Google HD')).join('')}</optgroup>`;
     if (EL.gOk || isGoogle()) html += `<optgroup label="★ Google (natural)">${GVOICES.map(([id, n]) => opt('gtts:' + id, '★ ' + n + ' — Google')).join('')}</optgroup>`;
     gProbe();
     html += `<optgroup label="★ ElevenLabs (natural)">${el.map((v) => opt('eleven:' + v.voice_id, '★ ' + v.name + ' — ElevenLabs')).join('')}</optgroup>`;
@@ -992,12 +993,15 @@ let vPoll = 0; function pollVoices() { const id = ++vPoll; let n = -1; [150, 500
 const relayBase = () => (S.relayUrl || '').trim().replace(/\/+$/, '');
 const elReady = () => !!(relayBase() && S.relayToken);
 // "cloud voice" = ElevenLabs (eleven:<id>) or Google Cloud TTS (gtts:<name>), both via the relay
-const isEleven = () => elReady() && !EL.off && /^(eleven|gtts):/.test(String(S.voice));
-const isGoogle = () => String(S.voice).startsWith('gtts:');
+const curV = () => String(EL.vo || S.voice); // EL.vo: session fallback (Google HD cap -> Neural2 J)
+const isEleven = () => elReady() && !EL.off && /^(eleven|gtts):/.test(curV());
+const isGoogle = () => curV().startsWith('gtts:');
 // Best few en-US Google Neural2 voices (exact word sync; inside the 1M chars/month free tier with the relay caps)
+// Chirp 3 HD: most natural, word timings estimated (no <mark> support). Neural2: exact timings, inside the free tier.
+const GHD = [['en-US-Chirp3-HD-Charon', 'Charon (male)'], ['en-US-Chirp3-HD-Aoede', 'Aoede (female)'], ['en-US-Chirp3-HD-Puck', 'Puck (male)'], ['en-US-Chirp3-HD-Kore', 'Kore (female)'], ['en-US-Chirp3-HD-Fenrir', 'Fenrir (male)'], ['en-US-Chirp3-HD-Leda', 'Leda (female)']];
 const GVOICES = [['en-US-Neural2-J', 'Neural2 J (male)'], ['en-US-Neural2-F', 'Neural2 F (female)'], ['en-US-Neural2-D', 'Neural2 D (male)'], ['en-US-Neural2-H', 'Neural2 H (female)']];
-async function gProbe() { if (EL.gProbed) return; EL.gProbed = true; try { const r = await relayFetch('/gtts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); EL.gOk = r.status === 400; if (EL.gOk) { if (!S.gDefaulted) { S.gDefaulted = true; S.voice = 'gtts:en-US-Neural2-J'; S.voiceName = 'Neural2 J (male)'; EL.off = false; saveS(); } loadVoices(); } } catch {} } // empty request: free
-const elVoice = () => String(S.voice).replace(/^(eleven|gtts):/, '') || EL_DEFAULT;
+async function gProbe() { if (EL.gProbed) return; EL.gProbed = true; try { const r = await relayFetch('/gtts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); EL.gOk = r.status === 400; if (EL.gOk) { if (!S.hdDefaulted) { S.hdDefaulted = S.gDefaulted = true; S.voice = 'gtts:en-US-Chirp3-HD-Charon'; S.voiceName = 'Charon (male)'; EL.off = false; saveS(); } loadVoices(); } } catch {} } // empty request: free
+const elVoice = () => curV().replace(/^(eleven|gtts):/, '') || EL_DEFAULT;
 const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
 async function elLoadVoices() {
   EL.loading = true;
@@ -1039,6 +1043,7 @@ async function elErr(r) {
   const raw = await r.text().catch(() => ''); let j = null; try { j = JSON.parse(raw); } catch {}
   const d = (j && (j.detail || j.error || j)) || {}; const code = String(d.status || d.code || '').toLowerCase();
   const e = new Error(d.message || (typeof d === 'string' ? d : raw.slice(0, 120)) || 'relay ' + r.status);
+  e.code = String(d.code || '');
   if (/quota|credit/.test(code + ' ' + e.message) || r.status === 429) { e.quota = true; e.message = /budget/.test(raw) ? 'Daily ElevenLabs budget reached' : 'ElevenLabs credits used up'; }
   return e;
 }
@@ -1074,7 +1079,7 @@ function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the dev
 async function elFrom(i) {
   const gen = ++EL.gen; const chunks = elChunks(); const ci = chunks.findIndex(([a, b]) => i >= a && i < b); if (ci < 0) return;
   $('#tapHint').textContent = 'Loading voice…';
-  let rec; try { rec = await elGet(ci); } catch (e) { if (gen !== EL.gen || e.name === 'AbortError') return; if (e.quota) return elQuota(e.message, i); toast('ElevenLabs: ' + String(e.message || e).slice(0, 80)); pause(); return; }
+  let rec; try { rec = await elGet(ci); } catch (e) { if (gen !== EL.gen || e.name === 'AbortError') return; if (e.code === 'hd_cap' && /Chirp3/.test(curV())) { EL.vo = 'gtts:en-US-Neural2-J'; toast('Google HD limit reached — using Neural2 J'); return elFrom(i); } if (e.quota) return elQuota(e.message, i); toast('ElevenLabs: ' + String(e.message || e).slice(0, 80)); pause(); return; }
   if (gen !== EL.gen || !R.playing) return;
   EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
@@ -1228,7 +1233,7 @@ $('#sizeIn').oninput = (e) => { S.size = +e.target.value; saveS(); applySettings
 $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySettings(); };
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
-const voicePick = (e) => { const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — (ElevenLabs|Google)$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
+const voicePick = (e) => { EL.vo = null; const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — (ElevenLabs|Google)$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
 $('#voiceSel').onchange = voicePick; $('#voiceSel').oninput = voicePick;
 $('#voicePreview').onclick = async () => {
   const b = $('#voicePreview'); const text = 'Hi, I’ll read to you.';

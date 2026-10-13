@@ -34,7 +34,7 @@ Change the budget: edit `DAILY_CHAR_BUDGET` in `wrangler.toml` and redeploy.
 
 ## Google Cloud TTS (`POST /gtts`)
 
-`{text, voice}` → `{audio_base64, alignment, estimated}` (same shape as `/tts`). Uses `v1beta1 text:synthesize` with an SSML `<mark>` before every word and `enableTimePointing: ["SSML_MARK"]`, so word highlighting is exact. Allowed voices: `en-US-Neural2-*` (exact timings) only, plus a hard monthly cap `GOOGLE_MONTHLY_CHAR_BUDGET` (default 950,000) so usage stays inside the 1M free tier. Same token/origin checks, 10-minute KV dedupe, own daily cap `GOOGLE_DAILY_CHAR_BUDGET` (default 30,000 chars). Without the secret it answers 503 `not_configured` and the app does not list Google voices.
+`{text, voice}` → `{audio_base64, alignment, estimated}` (same shape as `/tts`). Uses `v1beta1 text:synthesize` with an SSML `<mark>` before every word and `enableTimePointing: ["SSML_MARK"]`, so word highlighting is exact. Allowed voices: `en-US-Neural2-*` (exact timings) and Chirp 3 HD Charon, Aoede, Puck, Kore, Fenrir, Leda (plain-text input, estimated timings weighted by letters + punctuation pauses; own caps 80,000/day and 1,600,000/month = at most $18/month), plus a hard monthly cap `GOOGLE_MONTHLY_CHAR_BUDGET` (default 950,000) so usage stays inside the 1M free tier. Same token/origin checks, 10-minute KV dedupe, own daily cap `GOOGLE_DAILY_CHAR_BUDGET` (default 30,000 chars). Without the secret it answers 503 `not_configured` and the app does not list Google voices.
 
 ```bash
 npx wrangler secret put GOOGLE_TTS_KEY   # API key restricted to the Cloud Text-to-Speech API

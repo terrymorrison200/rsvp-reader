@@ -78,7 +78,16 @@ async function gutenberg(url, ctx) {
 
 // ---------- Google Cloud TTS (v1beta1, SSML <mark> per word -> word timings) ----------
 // Allowed voices: en-US Neural2 only. Caps keep usage inside Google's free tier: 30k chars/day and a hard 950k chars/month.
-const GVOICE = /^en-US-Neural2-[A-J]$/; // Neural2 only (free tier: 1M chars/month)
+const GVOICE = /^en-US-(Neural2-[A-J]|Chirp3-HD-(Charon|Aoede|Puck|Kore|Fenrir|Leda))$/;
+// Caps (free tiers are per voice type): Neural2 30k/day + 950k/month (inside 1M free) ·
+// Chirp 3 HD 80k/day + 1.6M/month (1M free + 600k × $30/M = $18 worst case, under $20).
+const CAPS = { n2: { day: 'gchars:', month: 'gmonth:', d: 'GOOGLE_DAILY_CHAR_BUDGET', dd: 30000, m: 'GOOGLE_MONTHLY_CHAR_BUDGET', md: 950000 },
+  hd: { day: 'hdchars:', month: 'hdmonth:', d: 'CHIRP_DAILY_CHAR_BUDGET', dd: 80000, m: 'CHIRP_MONTHLY_CHAR_BUDGET', md: 1600000 } };
+// Estimated word starts for voices without <mark> support: weight = letters + pause for punctuation.
+function estStarts(words, dur) {
+  const wt = words.map((w) => { const L = w.replace(/[^\p{L}\p{N}]/gu, '').length; return 1.5 + L + (/[.!?]["”’)]*$/.test(w) ? 7 : /[;:—]["”’)]*$/.test(w) ? 4.5 : /[,–]["”’)]*$/.test(w) ? 3 : 0); });
+  const tot = wt.reduce((a, b) => a + b, 0) || 1; let c = 0; return wt.map((x) => { const t = (c / tot) * dur; c += x; return t; });
+}
 const xmlEsc = (t) => t.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 async function gtts(req, env, ctx) {
   if (!env.SR_TOKEN || req.headers.get('X-SR-Token') !== env.SR_TOKEN) return err(401, 'bad token');
@@ -92,16 +101,16 @@ async function gtts(req, env, ctx) {
   const dk = 'g:' + (await sha(voice + '|' + text));
   const hit = await env.BUDGET.get(dk, 'stream');
   if (hit) return new Response(hit, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
-  const limit = +(env.GOOGLE_DAILY_CHAR_BUDGET || 30000); const key = 'gchars:' + day();
-  const mlimit = +(env.GOOGLE_MONTHLY_CHAR_BUDGET || 950000); const mkey = 'gmonth:' + day().slice(0, 7);
+  const chirp = /Chirp3/.test(voice); const C = chirp ? CAPS.hd : CAPS.n2;
+  const limit = +(env[C.d] || C.dd); const key = C.day + day();
+  const mlimit = +(env[C.m] || C.md); const mkey = C.month + day().slice(0, 7);
   const [used, mused] = (await Promise.all([env.BUDGET.get(key), env.BUDGET.get(mkey)])).map((v) => +(v || 0));
-  if (mused + text.length > mlimit) return err(429, 'monthly Google voice limit reached (stays inside the free tier)', 'budget_reached', { 'X-SR-Budget-Remaining': '0' });
-  if (used + text.length > limit) return err(429, 'daily Google voice budget reached', 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
-  const chirp = /Chirp3/.test(voice);
+  if (mused + text.length > mlimit) return err(429, chirp ? 'monthly Google HD limit reached' : 'monthly Google voice limit reached (stays inside the free tier)', chirp ? 'hd_cap' : 'budget_reached', { 'X-SR-Budget-Remaining': '0' });
+  if (used + text.length > limit) return err(429, chirp ? 'daily Google HD limit reached' : 'daily Google voice budget reached', chirp ? 'hd_cap' : 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
   const ssml = '<speak>' + words.map((w, i) => (chirp ? '' : `<mark name="${i}"/>`) + xmlEsc(w)).join(' ') + '</speak>';
   const r = await fetch('https://texttospeech.googleapis.com/v1beta1/text:synthesize', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.GOOGLE_TTS_KEY },
-    body: JSON.stringify({ input: { ssml }, voice: { languageCode: 'en-US', name: voice }, audioConfig: { audioEncoding: 'MP3' }, ...(chirp ? {} : { enableTimePointing: ['SSML_MARK'] }) }),
+    body: JSON.stringify({ input: chirp ? { text } : { ssml }, voice: { languageCode: 'en-US', name: voice }, audioConfig: { audioEncoding: 'MP3' }, ...(chirp ? {} : { enableTimePointing: ['SSML_MARK'] }) }),
   });
   if (!r.ok) {
     const raw = await r.text(); let e = {}; try { e = JSON.parse(raw).error || {}; } catch {}
@@ -113,7 +122,7 @@ async function gtts(req, env, ctx) {
   let st = new Array(words.length).fill(null), est = false;
   for (const tp of j.timepoints || []) { const i = +tp.markName; if (i >= 0 && i < words.length) st[i] = +tp.timeSeconds || 0; }
   const dur = (audio.length * 0.75 * 8) / 32000;
-  if (st.some((x) => x == null)) { est = true; const tot = text.length; let c = 0; st = words.map((w) => { const t = (c / tot) * dur; c += w.length + 1; return t; }); }
+  if (st.some((x) => x == null)) { est = true; st = estStarts(words, dur); }
   // shape like ElevenLabs alignment: one entry per character, every char of a word starts at the word's time
   const characters = [], s0 = [], e0 = [];
   words.forEach((w, i) => { const t = st[i], tn = i + 1 < words.length ? st[i + 1] : dur; if (i) { characters.push(' '); s0.push(t); e0.push(t); } for (const ch of w) { characters.push(ch); s0.push(t); e0.push(tn); } });

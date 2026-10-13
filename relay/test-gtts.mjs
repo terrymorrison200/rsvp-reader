@@ -4,7 +4,7 @@ const kv = new Map(); const BUDGET = { get: async (k, t) => kv.has(k) ? (t === '
 let calls = 0, lastBody = null;
 globalThis.fetch = async (url, opt) => { calls++; lastBody = JSON.parse(opt.body);
   if (lastBody.voice.name.includes('Neural2-Q')) return new Response('{}');
-  const n = (lastBody.input.ssml.match(/<mark /g) || []).length;
+  const n = ((lastBody.input.ssml || "").match(/<mark /g) || []).length;
   if (process.env.QUOTA) return new Response(JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded' } }), { status: 429 });
   return new Response(JSON.stringify({ audioContent: 'A'.repeat(16000), timepoints: Array.from({ length: n }, (_, i) => ({ markName: String(i), timeSeconds: i * 0.4 })) })); };
 const env = { SR_TOKEN: 't', GOOGLE_TTS_KEY: 'k', BUDGET }; const ctx = { waitUntil: (p) => p };
@@ -19,7 +19,13 @@ ok(JSON.stringify(starts.map((x) => +x.toFixed(1))) === JSON.stringify([0, 0.4, 
 await new Promise((r) => setTimeout(r, 10));
 const before = calls; r = await call({ text: 'It was <the> best of times.', voice: 'en-US-Neural2-J' });
 ok(r.headers.get('X-Cache') === 'HIT' && calls === before, 'dedupe served from KV, no Google call');
-ok((await call({ text: 'x', voice: 'en-US-Chirp3-HD-Charon' })).status === 400, 'chirp3 not allowed');
+r = await call({ text: 'Hello there, my friend. Truly!', voice: 'en-US-Chirp3-HD-Charon' }); j = await r.json();
+ok(r.status === 200 && j.estimated === true && !lastBody.enableTimePointing && lastBody.input.text && !lastBody.input.ssml, 'chirp3: plain text (no billed tags), estimated timings');
+{ const ch = j.alignment.characters, st = j.alignment.character_start_times_seconds; const ws = ch.map((c, i) => (c !== ' ' && (i === 0 || ch[i - 1] === ' ')) ? st[i] : null).filter((x) => x != null); ok(ws.length === 5 && ws.every((x, k) => !k || x > ws[k - 1]) && (ws[4] - ws[3]) > (ws[2] - ws[1]) && (ws[2] - ws[1]) > (ws[1] - ws[0]), 'estimate: increasing, sentence pause weighted'); }
+ok((await call({ text: 'x', voice: 'en-US-Chirp3-HD-Zephyr' })).status === 400, 'unlisted chirp voice rejected');
+kv.set('hdmonth:' + new Date().toISOString().slice(0, 7), '1599995'); r = await call({ text: 'hd monthly cap', voice: 'en-US-Chirp3-HD-Aoede' }); ok(r.status === 429 && (await r.json()).error.code === 'hd_cap', 'chirp monthly cap 1.6M -> hd_cap');
+r = await call({ text: 'neural still fine', voice: 'en-US-Neural2-J' }); ok(r.status === 200, 'neural2 unaffected by chirp cap');
+kv.clear(); kv.set('hdchars:' + new Date().toISOString().slice(0, 10), '79995'); r = await call({ text: 'hd daily cap', voice: 'en-US-Chirp3-HD-Puck' }); ok(r.status === 429 && (await r.json()).error.code === 'hd_cap', 'chirp daily cap 80k');
 ok((await call({ text: 'x', voice: 'en-GB-Neural2-A' })).status === 400, 'non en-US voice rejected');
 ok((await call({ text: 'x', voice: 'en-US-Studio-O' })).status === 400, 'studio not allowed');
 ok((await call({ text: 'x' }, { 'X-SR-Token': 'nope' })).status === 401, 'bad token rejected');
