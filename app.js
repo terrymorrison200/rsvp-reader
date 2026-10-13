@@ -1,4 +1,4 @@
-const APP_VER = 'v16';
+const APP_VER = 'v17';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -991,9 +991,9 @@ const elReady = () => !!(relayBase() && S.relayToken);
 // "cloud voice" = ElevenLabs (eleven:<id>) or Google Cloud TTS (gtts:<name>), both via the relay
 const isEleven = () => elReady() && !EL.off && /^(eleven|gtts):/.test(String(S.voice));
 const isGoogle = () => String(S.voice).startsWith('gtts:');
-// Best few en-US Google voices. Neural2 = exact word sync; Chirp3-HD = most natural, timings estimated.
-const GVOICES = [['en-US-Neural2-J', 'Neural2 J (male)'], ['en-US-Neural2-F', 'Neural2 F (female)'], ['en-US-Neural2-D', 'Neural2 D (male)'], ['en-US-Neural2-H', 'Neural2 H (female)'], ['en-US-Chirp3-HD-Charon', 'Chirp 3 HD Charon (male)'], ['en-US-Chirp3-HD-Aoede', 'Chirp 3 HD Aoede (female)']];
-async function gProbe() { if (EL.gProbed) return; EL.gProbed = true; try { const r = await relayFetch('/gtts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); EL.gOk = r.status === 400; if (EL.gOk) loadVoices(); } catch {} } // empty request: free
+// Best few en-US Google Neural2 voices (exact word sync; inside the 1M chars/month free tier with the relay caps)
+const GVOICES = [['en-US-Neural2-J', 'Neural2 J (male)'], ['en-US-Neural2-F', 'Neural2 F (female)'], ['en-US-Neural2-D', 'Neural2 D (male)'], ['en-US-Neural2-H', 'Neural2 H (female)']];
+async function gProbe() { if (EL.gProbed) return; EL.gProbed = true; try { const r = await relayFetch('/gtts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); EL.gOk = r.status === 400; if (EL.gOk) { if (!S.gDefaulted) { S.gDefaulted = true; S.voice = 'gtts:en-US-Neural2-J'; S.voiceName = 'Neural2 J (male)'; EL.off = false; saveS(); } loadVoices(); } } catch {} } // empty request: free
 const elVoice = () => String(S.voice).replace(/^(eleven|gtts):/, '') || EL_DEFAULT;
 const relayFetch = (path, opt = {}) => fetch(relayBase() + path, { ...opt, headers: { ...(opt.headers || {}), 'X-SR-Token': S.relayToken } });
 async function elLoadVoices() {

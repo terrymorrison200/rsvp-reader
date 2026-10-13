@@ -77,8 +77,8 @@ async function gutenberg(url, ctx) {
 }
 
 // ---------- Google Cloud TTS (v1beta1, SSML <mark> per word -> word timings) ----------
-// Allowed voices: en-US Neural2 (exact word timings via marks) and Chirp3-HD (marks unsupported -> estimated timings).
-const GVOICE = /^en-US-(Neural2-[A-J]|Chirp3-HD-[A-Za-z]+)$/;
+// Allowed voices: en-US Neural2 only. Caps keep usage inside Google's free tier: 30k chars/day and a hard 950k chars/month.
+const GVOICE = /^en-US-Neural2-[A-J]$/; // Neural2 only (free tier: 1M chars/month)
 const xmlEsc = (t) => t.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 async function gtts(req, env, ctx) {
   if (!env.SR_TOKEN || req.headers.get('X-SR-Token') !== env.SR_TOKEN) return err(401, 'bad token');
@@ -92,8 +92,10 @@ async function gtts(req, env, ctx) {
   const dk = 'g:' + (await sha(voice + '|' + text));
   const hit = await env.BUDGET.get(dk, 'stream');
   if (hit) return new Response(hit, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'HIT' }) });
-  const limit = +(env.GOOGLE_DAILY_CHAR_BUDGET || 60000); const key = 'gchars:' + day();
-  const used = +((await env.BUDGET.get(key)) || 0);
+  const limit = +(env.GOOGLE_DAILY_CHAR_BUDGET || 30000); const key = 'gchars:' + day();
+  const mlimit = +(env.GOOGLE_MONTHLY_CHAR_BUDGET || 950000); const mkey = 'gmonth:' + day().slice(0, 7);
+  const [used, mused] = (await Promise.all([env.BUDGET.get(key), env.BUDGET.get(mkey)])).map((v) => +(v || 0));
+  if (mused + text.length > mlimit) return err(429, 'monthly Google voice limit reached (stays inside the free tier)', 'budget_reached', { 'X-SR-Budget-Remaining': '0' });
   if (used + text.length > limit) return err(429, 'daily Google voice budget reached', 'budget_reached', { 'X-SR-Budget-Remaining': String(Math.max(0, limit - used)) });
   const chirp = /Chirp3/.test(voice);
   const ssml = '<speak>' + words.map((w, i) => (chirp ? '' : `<mark name="${i}"/>`) + xmlEsc(w)).join(' ') + '</speak>';
@@ -117,6 +119,7 @@ async function gtts(req, env, ctx) {
   words.forEach((w, i) => { const t = st[i], tn = i + 1 < words.length ? st[i + 1] : dur; if (i) { characters.push(' '); s0.push(t); e0.push(t); } for (const ch of w) { characters.push(ch); s0.push(t); e0.push(tn); } });
   const out = JSON.stringify({ audio_base64: audio, alignment: { characters, character_start_times_seconds: s0, character_end_times_seconds: e0 }, estimated: est });
   ctx.waitUntil(env.BUDGET.put(key, String(used + text.length), { expirationTtl: 3 * 86400 }));
+  ctx.waitUntil(env.BUDGET.put(mkey, String(mused + text.length), { expirationTtl: 40 * 86400 }));
   ctx.waitUntil(env.BUDGET.put(dk, out, { expirationTtl: DEDUPE_SECONDS }));
   return new Response(out, { headers: cors({ 'Content-Type': 'application/json', 'X-Cache': 'MISS', 'X-SR-Budget-Remaining': String(Math.max(0, limit - used - text.length)) }) });
 }

@@ -19,12 +19,12 @@ ok(JSON.stringify(starts.map((x) => +x.toFixed(1))) === JSON.stringify([0, 0.4, 
 await new Promise((r) => setTimeout(r, 10));
 const before = calls; r = await call({ text: 'It was <the> best of times.', voice: 'en-US-Neural2-J' });
 ok(r.headers.get('X-Cache') === 'HIT' && calls === before, 'dedupe served from KV, no Google call');
-r = await call({ text: 'Hello there friend.', voice: 'en-US-Chirp3-HD-Charon' }); j = await r.json();
-ok(r.status === 200 && j.estimated === true && !lastBody.enableTimePointing && !/<mark/.test(lastBody.input.ssml), 'chirp3: no marks, estimated timings');
+ok((await call({ text: 'x', voice: 'en-US-Chirp3-HD-Charon' })).status === 400, 'chirp3 not allowed');
 ok((await call({ text: 'x', voice: 'en-GB-Neural2-A' })).status === 400, 'non en-US voice rejected');
 ok((await call({ text: 'x', voice: 'en-US-Studio-O' })).status === 400, 'studio not allowed');
 ok((await call({ text: 'x' }, { 'X-SR-Token': 'nope' })).status === 401, 'bad token rejected');
 ok((await worker.fetch(new Request('https://x/gtts', { method: 'POST', headers: { Origin: 'https://evil.com', 'X-SR-Token': 't' }, body: '{}' }), env, ctx)).status === 403, 'bad origin rejected');
 ok((await worker.fetch(new Request('https://x/gtts', { method: 'POST', headers: { Origin: O, 'X-SR-Token': 't' }, body: '{"text":"hi"}' }), { ...env, GOOGLE_TTS_KEY: '' }, ctx)).status === 503, 'no key -> 503 not_configured');
-kv.set('gchars:' + new Date().toISOString().slice(0, 10), '59999'); r = await call({ text: 'over budget now', voice: 'en-US-Neural2-F' }); ok(r.status === 429 && (await r.json()).error.code === 'budget_reached', 'budget cap');
+kv.set('gchars:' + new Date().toISOString().slice(0, 10), '29999'); r = await call({ text: 'over budget now', voice: 'en-US-Neural2-F' }); ok(r.status === 429 && (await r.json()).error.code === 'budget_reached', 'budget cap');
+kv.clear(); kv.set('gmonth:' + new Date().toISOString().slice(0, 7), '949995'); r = await call({ text: 'monthly cap hit', voice: 'en-US-Neural2-F' }); ok(r.status === 429 && /monthly/.test((await r.json()).error.message), 'monthly cap');
 kv.clear(); process.env.QUOTA = 1; r = await call({ text: 'quota test', voice: 'en-US-Neural2-F' }); ok(r.status === 429 && (await r.json()).error.code === 'quota_exceeded', 'google quota -> quota_exceeded');
