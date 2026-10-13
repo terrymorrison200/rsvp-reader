@@ -1,4 +1,4 @@
-const APP_VER = 'v21';
+const APP_VER = 'v22';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -1046,7 +1046,7 @@ function speakWords(w0, w1) {
     if (/^\[Illustration/i.test(t)) ill = true;
     if (ill) { out.push(''); if (/\]$/.test(t)) ill = false; if (k + 1 < w1 && R.words[k + 1].p !== R.words[k].p) ill = false; continue; }
     t = t.replace(/\[\d+\]|\{\d+\}|\[[a-z]\]/gi, '').replace(/_/g, '').replace(/^\*+|\*+$/g, '');
-    if (/^[^a-z]*[A-Z]{3,}[^a-z]*$/.test(t) && !/^[IVXLCDM]+[.,:;]?$/.test(t)) t = t.toLowerCase().replace(/(^|[^a-z’'])([a-z])/, (m, a, c) => a + c.toUpperCase());
+    if (/^[^a-z]*[A-Z]{3,}[^a-z]*$/.test(t) && !/^[IVXLCDM]+[.,:;]?$/.test(t)) { t = t.toLowerCase(); if (k === 0 || R.words[k - 1].end >= 2 || /^[IVXLCDM]+\.?$|^\d+\.?$/.test(R.words[k - 1].t)) t = t.replace(/(^|[^a-z’'])([a-z])/, (m, a, c) => a + c.toUpperCase()); }
     out.push(t.trim());
   }
   return out;
