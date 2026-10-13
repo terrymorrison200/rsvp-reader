@@ -266,3 +266,8 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 .el-relay>summary{font-size:13px;color:var(--mute);font-weight:600;cursor:pointer;letter-spacing:.3px}
 .reading .context.show{pointer-events:none;opacity:.85}
 .chap-line{font-size:12px;color:var(--mute);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 6px;min-height:15px}
+/* speed / progress sliders: big touch target, no page scroll or double-tap zoom while adjusting */
+#controls{touch-action:manipulation}
+#controls input[type=range]{touch-action:none;height:44px}
+#controls input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-11px}
+.chip-btn{min-width:44px;min-height:44px;touch-action:manipulation;-webkit-user-select:none;user-select:none}

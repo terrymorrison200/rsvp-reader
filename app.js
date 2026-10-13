@@ -1,4 +1,4 @@
-const APP_VER = 'v17';
+const APP_VER = 'v18';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -821,9 +821,12 @@ async function savePos(force) {
   if (!R.meta) return; const now = Date.now(); if (!force && now - R.lastSave < 1500) return;
   R.lastSave = now; R.meta.pos = R.i; await idb.put('meta', R.meta);
 }
-function setWpm(v, persist = true) {
+// live=true while dragging: update the number only; never write the slider's own value back mid-drag (iOS jumps)
+const wpmLabel = (v) => { $('#wpmLabel').textContent = v; $('#wpm').style.setProperty('--fill', ((v - 100) / 9) + '%'); };
+function setWpm(v, persist = true, live = false) {
   S.wpm = Math.max(100, Math.min(1000, Math.round(v / 5) * 5));
-  $('#wpm').value = S.wpm; $('#wpmLabel').textContent = S.wpm; $('#wpm').style.setProperty('--fill', ((S.wpm - 100) / 9) + '%');
+  if (live) { wpmLabel(S.wpm); return; }
+  if (+$('#wpm').value !== S.wpm) $('#wpm').value = S.wpm; $('#wpmLabel').textContent = S.wpm; $('#wpm').style.setProperty('--fill', ((S.wpm - 100) / 9) + '%');
   if (persist) saveS(); if (R.words.length) updateProgress();
   if (R.narr && isEleven()) EA.playbackRate = elRate();
   if (R.audio) { AU.playbackRate = audioRate(); if (persist && S.wpm / R.baseWpm > MAX_RATE) $('#wpmLabel').textContent = Math.round(R.baseWpm * MAX_RATE) + '*'; }
@@ -1197,12 +1200,18 @@ const longPress = (el, short, long) => { let t = 0, fired = false; const down = 
   el.addEventListener('contextmenu', (e) => e.preventDefault()); el.onclick = (e) => { if (fired) { e.preventDefault(); return; } short(); }; };
 longPress($('#prevSentBtn'), prevSentence, () => jumpChap(-1)); longPress($('#nextSentBtn'), nextSentence, () => jumpChap(1));
 $('#prevWordBtn').onclick = () => seek(R.i - 1, false); $('#nextWordBtn').onclick = () => seek(R.i + 1, false);
-$('#slowerBtn').onclick = () => setWpm(S.wpm - 25); $('#fasterBtn').onclick = () => setWpm(S.wpm + 25);
-$('#wpm').oninput = (e) => setWpm(+e.target.value);
+$('#slowerBtn').onclick = (e) => { e.stopPropagation(); setWpm(S.wpm - 25); }; $('#fasterBtn').onclick = (e) => { e.stopPropagation(); setWpm(S.wpm + 25); };
+$('#wpm').oninput = (e) => setWpm(+e.target.value, false, true);   // label only while dragging
+$('#wpm').onchange = (e) => { setWpm(+e.target.value); if (R.playing) revealControls(); };               // apply (save + playbackRate) on release
+// taps on the controls must never reach the reader's tap-to-play/pause
+['click', 'pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach((ev) => $('#controls').addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
+// while playing on a phone the controls are hidden: a tap in the lower part of the screen reveals them instead of pausing
+let revealT; const revealControls = () => { $('#readerView').classList.remove('reading'); clearTimeout(revealT); revealT = setTimeout(() => R.playing && $('#readerView').classList.add('reading'), 3500); };
 $('#progress').oninput = (e) => { const was = R.playing; if (was) pause(); R.i = Math.round((e.target.value / 1000) * (R.words.length - 1)); render(); showContext(); updateChapLine(R.i, true); };
 $('#progress').onchange = () => savePos(true);
 $('#stage').addEventListener('click', (e) => {
   const w = e.target.closest('#contextBox .w'); if (w) { seek(+w.dataset.i, false); return; }
+  if (R.playing && $('#readerView').classList.contains('reading') && matchMedia('(pointer: coarse)').matches && e.clientY > innerHeight * 0.68) { revealControls(); return; }
   toggle();
 });
 // show controls briefly on mouse move while reading (desktop)
