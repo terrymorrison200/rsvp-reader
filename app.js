@@ -1,4 +1,4 @@
-const APP_VER = 'v20';
+const APP_VER = 'v21';
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -826,6 +826,7 @@ const wpmLabel = (v) => { $('#wpmLabel').textContent = v; $('#wpm').style.setPro
 function setWpm(v, persist = true, live = false) {
   S.wpm = Math.max(100, Math.min(1000, Math.round(v / 5) * 5));
   if (live) { wpmLabel(S.wpm); return; }
+  if (persist) EL.natural = false;
   if (+$('#wpm').value !== S.wpm) $('#wpm').value = S.wpm; $('#wpmLabel').textContent = S.wpm; $('#wpm').style.setProperty('--fill', ((S.wpm - 100) / 9) + '%');
   if (persist) saveS(); if (R.words.length) updateProgress();
   if (R.narr && isEleven()) EA.playbackRate = elRate();
@@ -958,6 +959,7 @@ function speakFrom(i) {
   speechSynthesis.speak(u);
 }
 function setNarr(on) {
+  if (on && isEleven()) EL.natural = true; // narrate at the voice's own pace (1.0×) until speed is changed
   if (on && !('speechSynthesis' in window) && !isEleven()) return toast('Narration is not supported in this browser');
   const was = R.playing; if (was) pause();
   if (on && R.audio) setAudioMode(false); R.narr = on; $('#narrateBtn').setAttribute('aria-pressed', on);
@@ -1017,15 +1019,36 @@ const elUse = () => JSON.parse(localStorage.getItem('sr.elChars') || '{"total":0
 function elCount(n) { const u = elUse(); u.total += n; u.days[today()] = (u.days[today()] || 0) + n; localStorage.setItem('sr.elChars', JSON.stringify(u)); const el = $('#elUsage'); if (el) el.textContent = elUsageText(); }
 function elUsageText() { const u = elUse(); return `ElevenLabs characters · today ${(u.days[today()] || 0).toLocaleString()} · total ${u.total.toLocaleString()}${EL.remaining != null ? ` · relay budget left today ${(+EL.remaining).toLocaleString()}` : ''}`; }
 // Split the document into ~3,000-char chunks at sentence boundaries (hard max 4,000). Deterministic per doc so cache keys stay stable.
+const isHD = () => /Chirp3/.test(curV());
+// Chunks: 1–2 sentences (~350 chars) normally; for Google HD whole paragraphs up to ~1,500 chars (natural prosody),
+// splitting an over-long paragraph at sentence ends. Only one chunk is fetched at a time (read-ahead at 60%).
 function elChunks(words = R.words, target = 350, max = 550) {
-  if (R.elChunksFor === words && R.elChunks) return R.elChunks;
+  const hd = isHD() && words === R.words; const mode = hd ? 'hd' : 'n';
+  if (R.elChunksFor === words && R.elChunks && R.elChunksMode === mode) return R.elChunks;
   const out = []; let w0 = 0, len = 0;
   for (let k = 0; k < words.length; k++) {
     len += words[k].t.length + 1;
-    const sentEnd = k === words.length - 1 || words[k + 1].s !== words[k].s;
-    if ((sentEnd && len >= target) || len >= max - 60 || k === words.length - 1) { out.push([w0, k + 1]); w0 = k + 1; len = 0; }
+    const last = k === words.length - 1; const sentEnd = last || words[k + 1].s !== words[k].s; const paraEnd = last || words[k + 1].p !== words[k].p;
+    let cut;
+    if (hd) { let nextPara = 0; if (paraEnd && !last) { for (let j = k + 1; j < words.length && words[j].p === words[k + 1].p; j++) nextPara += words[j].t.length + 1; } cut = last || (paraEnd && len + nextPara > 1500) || (sentEnd && len >= 1300) || len >= 1600; }
+    else cut = (sentEnd && len >= target) || len >= max - 60 || last;
+    if (cut) { out.push([w0, k + 1]); w0 = k + 1; len = 0; }
   }
-  if (words === R.words) { R.elChunksFor = words; R.elChunks = out; }
+  if (words === R.words) { R.elChunksFor = words; R.elChunks = out; R.elChunksMode = mode; }
+  return out;
+}
+// Text as it should be spoken: drop [Illustration …] and footnote markers, italics underscores, ALL-CAPS -> normal case.
+// Returns one entry per word ('' = silent) so word timings can be mapped back.
+function speakWords(w0, w1) {
+  const out = []; let ill = false;
+  for (let k = w0; k < w1; k++) {
+    let t = R.words[k].t;
+    if (/^\[Illustration/i.test(t)) ill = true;
+    if (ill) { out.push(''); if (/\]$/.test(t)) ill = false; if (k + 1 < w1 && R.words[k + 1].p !== R.words[k].p) ill = false; continue; }
+    t = t.replace(/\[\d+\]|\{\d+\}|\[[a-z]\]/gi, '').replace(/_/g, '').replace(/^\*+|\*+$/g, '');
+    if (/^[^a-z]*[A-Z]{3,}[^a-z]*$/.test(t) && !/^[IVXLCDM]+[.,:;]?$/.test(t)) t = t.toLowerCase().replace(/(^|[^a-z’'])([a-z])/, (m, a, c) => a + c.toUpperCase());
+    out.push(t.trim());
+  }
   return out;
 }
 // Group character timestamps into words: a word starts at each non-space char that follows a space (or the start).
@@ -1066,13 +1089,17 @@ async function elTTS(text, voice, k, extra = {}) {
   return p;
 }
 async function elGet(ci, prefetch = false) {
-  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const text = R.words.slice(w0, w1).map((w) => w.t).join(' ');
+  const [w0, w1] = elChunks()[ci]; const voice = elVoice(); const sw = speakWords(w0, w1); const spoken = sw.filter(Boolean);
+  if (!spoken.length) return { k: '', audio: new Blob([Uint8Array.from(atob(SILENT_WAV.split(',')[1]), (c) => c.charCodeAt(0))], { type: 'audio/wav' }), ci, w0, w1, t: sw.map(() => 0), end: 0.1 };
+  const text = spoken.join(' ');
   const k = `v2|${voice}|${hashT(text)}`;
   if (prefetch && EL.pending.size) return null; // never run two requests at once
   const rec = await elTTS(text, voice, k);
-  return { ...rec, ci, w0, w1, ...elWordTimes(rec.al, w1 - w0) };
+  const wt = elWordTimes(rec.al, spoken.length); let j = 0, last = 0; // map spoken-word times back onto every word
+  const t = sw.map((x) => (x ? (last = wt.t[j++]) : last));
+  return { ...rec, ci, w0, w1, t, end: wt.end };
 }
-const elRate = () => { const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
+const elRate = () => { if (EL.natural) return 1; const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
 function elStop() { EL.gen++; cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
 // Out of credits: say so once, then carry on with the device voice.
 function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the device voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
@@ -1087,7 +1114,9 @@ async function elFrom(i) {
   if (rec.est && EA.duration && rec.end) { const f = EA.duration / rec.end; rec.t = rec.t.map((x) => x * f); rec.end = EA.duration; } // estimated (Chirp 3) timings -> real length
   EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
   let pre = false;
-  EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos(); elFrom(rec.w1); };
+  EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos();
+    const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
+    const gap = chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1); }, gap); else elFrom(rec.w1); };
   try { await EA.play(); } catch (e) { console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
   const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } if (!pre && ci + 1 < chunks.length && EA.duration && EA.currentTime > EA.duration * 0.6) { pre = true; elGet(ci + 1, true).catch((e) => console.warn('prefetch', e.message)); } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
   loop();
