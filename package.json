@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:narration": "node tests/ns-unit-test.mjs && node tests/narrate-sync-test.mjs"
   },
   "keywords": [],
   "author": "",

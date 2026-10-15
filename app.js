@@ -1,4 +1,6 @@
-const APP_VER = 'v23';
+const APP_VER = 'v24';
+import './narrsync.js'; // narration timing helpers (window.NS)
+const NS = window.NS;
 // Swift Read — local-first RSVP reader
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -928,31 +930,39 @@ function loadVoices() {
   const st = $('#elStatus'); if (st) st.textContent = elReady() ? `ElevenLabs connected on this device${EL.voices.length ? ` · ${EL.voices.length} voices` : ' · loading voices…'}` : 'ElevenLabs is not set up on this device. Each device (and the iPhone home-screen app) needs the relay URL and token entered here.';
   $('#elUsage').textContent = elUsageText();
 }
+const GAPW = NS.GAPW;
 function speakFrom(i) {
   if (isEleven()) return elFrom(i);
   const gen = ++R.utterGen; const w = R.words[i];
   const end = (R.sentStart[w.s + 1] ?? R.words.length);
-  const offsets = []; let text = '';
-  for (let k = i; k < end; k++) { offsets.push([text.length, k]); text += R.words[k].t + ' '; }
+  // Speak the cleaned text (no illustrations/footnote markers), keeping an explicit spoken-char-offset -> displayed-word map
+  const sw = speakWords(i, end); const offsets = [], cw = []; let text = '', cum = 0;
+  sw.forEach((x, q) => { if (x) { offsets.push([text.length, i + q]); cw.push(cum); cum += NS.wordW(x) + GAPW[NS.gapType(x, false)]; text += x + ' '; } });
+  const finish = () => { if (end >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return true; } return false; };
+  if (!offsets.length) { countWords(end - R.i); if (finish()) return; R.i = end; render(); savePos(); return speakFrom(end); } // nothing audible in this sentence
   const u = new SpeechSynthesisUtterance(text);
   const v = speechSynthesis.getVoices().find((x) => x.voiceURI === S.voice); if (v) { u.voice = v; u.lang = v.lang; }
   u.rate = S.rate;
-  let gotBoundary = false; const t0 = performance.now();
+  const pace = () => (R.devPace || 0.05) / (S.rate || 1); // seconds per weight unit; re-measured after every sentence
+  let gotBoundary = false, tStart = 0, anchor = null, lastB = 0;
+  const setWord = (j) => { const k = offsets[j][1]; if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } };
+  u.onstart = () => { tStart = performance.now(); anchor = { j: 0, t: tStart }; };
   u.onboundary = (e) => {
-    if (gen !== R.utterGen || (e.name && e.name !== 'word')) return; gotBoundary = true;
-    let k = i; for (const [o, idx] of offsets) { if (o <= e.charIndex) k = idx; else break; }
-    if (k !== R.i) { countWords(k - R.i); R.i = k; render(); savePos(); }
+    if (gen !== R.utterGen || (e.name && e.name !== 'word')) return; gotBoundary = true; lastB = performance.now();
+    let j = 0; for (let q = 0; q < offsets.length; q++) { if (offsets[q][0] <= e.charIndex) j = q; else break; }
+    anchor = { j, t: lastB }; setWord(j); // re-anchor on every real boundary
   };
-  // fallback estimator if the voice doesn't emit boundary events
+  // voices that emit no (or stop emitting) boundary events: estimate from the last known position with the measured pace
   const est = setInterval(() => {
     if (gen !== R.utterGen) return clearInterval(est);
-    if (gotBoundary) return clearInterval(est);
-    const k = Math.min(end - 1, i + Math.floor(((performance.now() - t0) / 1000) * 2.6 * S.rate));
-    if (k > R.i) { countWords(k - R.i); R.i = k; render(); }
-  }, 120);
+    if (!anchor || (gotBoundary && performance.now() - lastB < 900)) return;
+    const target = cw[anchor.j] + (performance.now() - anchor.t) / 1000 / pace(); let j = anchor.j; while (j + 1 < cw.length && cw[j + 1] <= target) j++;
+    if (offsets[j][1] > R.i) setWord(j);
+  }, 100);
   u.onend = () => {
     clearInterval(est); if (gen !== R.utterGen || !R.playing) return;
-    countWords(end - R.i); if (end >= R.words.length) { R.i = R.words.length - 1; render(); pause(); toast('Finished ✨'); return; }
+    if (tStart && cum) { const sample = ((performance.now() - tStart) / 1000 / cum) * (S.rate || 1); if (sample > 0.015 && sample < 0.25) R.devPace = R.devPace ? R.devPace * 0.5 + sample * 0.5 : sample; }
+    countWords(end - R.i); if (finish()) return;
     R.i = end; render(); savePos(); speakFrom(end);
   };
   u.onerror = (e) => { clearInterval(est); if (gen === R.utterGen && e.error !== 'interrupted' && e.error !== 'canceled') { toast('Narration error: ' + e.error); } };
@@ -1052,11 +1062,13 @@ function speakWords(w0, w1) {
   return out;
 }
 // Group character timestamps into words: a word starts at each non-space char that follows a space (or the start).
+// `bad` = the provider's word count doesn't match what we sent: its times can't be trusted per word, so the caller re-times from the audio.
 function elWordTimes(al, nWords) {
   const ch = al.characters, st = al.character_start_times_seconds, en = al.character_end_times_seconds; const t = [];
   for (let c = 0; c < ch.length; c++) if (!/\s/.test(ch[c]) && (c === 0 || /\s/.test(ch[c - 1]))) t.push(st[c]);
   const end = en[en.length - 1] || 0;
-  if (t.length !== nWords) { console.warn('alignment word mismatch', t.length, nWords); return { t: Array.from({ length: nWords }, (_, k) => (k / nWords) * end), end }; }
+  if (t.length !== nWords) { console.warn('alignment word mismatch', t.length, nWords); return { t: Array.from({ length: nWords }, (_, k) => (k / nWords) * end), end, bad: true }; }
+  for (let k = 1; k < t.length; k++) if (!(t[k] >= t[k - 1])) t[k] = t[k - 1]; // never run backwards
   return { t, end };
 }
 // FNV-1a text hash: cache by voice + exact text, so replays / re-opens never re-bill.
@@ -1109,16 +1121,56 @@ function chunkFrom(i, level = 0) {
   if (cut < 0) cut = k + 1;
   return [w0, Math.min(cut, W.length)];
 }
+// What is actually spoken for displayed words w0..w1: `map[j]` = displayed index of the j-th spoken word (silent words — illustrations,
+// footnote markers — have no entry), `sp[j]` = {t: spoken text, para: a paragraph ends after it}. All timing is done per SPOKEN word and
+// mapped back through `map`, so cleaning can never shift the highlighted index.
+function elSpoken(w0, w1) {
+  const sw = speakWords(w0, w1), map = []; sw.forEach((x, q) => { if (x) map.push(w0 + q); });
+  const sp = map.map((k, j) => ({ t: sw[k - w0], para: j < map.length - 1 && R.words[map[j + 1]].p !== R.words[k].p }));
+  return { map, sp };
+}
+// Start time for every DISPLAYED word of the chunk, from per-spoken-word start times `st`. Silent words sit just before the next
+// spoken word (the highlight skips them); trailing silent words sit after the last spoken word has finished.
+function elDisplayTimes(r, st, spEnd) {
+  const n = r.w1 - r.w0, t = new Array(n); let j = 0, pend = [];
+  for (let q = 0; q < n; q++) { if (j < r.map.length && r.map[j] === r.w0 + q) { const x = st[j++]; pend.forEach((p, z) => { t[p] = Math.max(0, x - 0.001 * (pend.length - z)); }); pend = []; t[q] = x; } else pend.push(q); }
+  const tail = Math.max(spEnd || 0, (st[st.length - 1] || 0) + 0.05); pend.forEach((p, z) => { t[p] = tail + 0.001 * z; });
+  for (let q = 1; q < n; q++) if (t[q] < t[q - 1]) t[q] = t[q - 1];
+  return t;
+}
+// Re-time a chunk: exact voices keep the provider's word times; estimated ones (Chirp 3 HD, or a bad alignment) are laid out over the
+// speech actually found in the decoded audio (`an`, may be null), scaled to the real duration `dur`.
+function elRetime(r, an, dur, f = 1) {
+  let st, spEnd;
+  if (r.est) { const o = NS.timings(r.sp, an, dur); st = o.t.map((x) => x * f); spEnd = (an ? an.off : dur) * f; r.end = dur * f; r.anchors = o.anchors; }
+  else { st = r.wt; spEnd = r.wend; r.end = dur || r.wend || r.end; }
+  r.st = st; r.t = elDisplayTimes(r, st, spEnd);
+}
+// Decode a chunk's audio (offscreen, no audio session) and find where speech starts/stops and where the pauses are. Cached per chunk.
+EL.an = new Map();
+function elDecode(blob) {
+  const AC = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!AC) return Promise.resolve(null);
+  return blob.arrayBuffer().then((buf) => new Promise((res, rej) => { const c = new AC(1, 1, 22050); const p = c.decodeAudioData(buf, res, rej); if (p && p.then) p.then(res, rej); }));
+}
+function elAnalyze(r) {
+  if (EL.an.has(r.k)) return EL.an.get(r.k);
+  const done = (an, dur) => ({ an, dur }); let p;
+  if (r.an && r.adur) p = Promise.resolve(done(r.an, r.adur));
+  else p = elDecode(r.audio).then((ab) => { const x = ab.getChannelData(0); const an = NS.analyze(NS.envelope(x, ab.sampleRate)); if (an) { r.base.an = an; r.base.adur = ab.duration; idb.put('tts', r.base).catch(() => {}); } return done(an, ab.duration); }).catch((e) => { console.warn('narration analysis', e); return null; });
+  EL.an.set(r.k, p); p.then((v) => { if (!v) EL.an.delete(r.k); }); return p;
+}
 async function elGet(range, prefetch = false) {
-  const [w0, w1] = range; const ci = w0; const voice = elVoice(); const sw = speakWords(w0, w1); const spoken = sw.filter(Boolean);
-  if (!spoken.length) return { k: '', audio: new Blob([Uint8Array.from(atob(SILENT_WAV.split(',')[1]), (c) => c.charCodeAt(0))], { type: 'audio/wav' }), ci, w0, w1, t: sw.map(() => 0), end: 0.1 };
-  const text = spoken.join(' ');
+  const [w0, w1] = range; const ci = w0; const voice = elVoice(); const { map, sp } = elSpoken(w0, w1);
+  if (!sp.length) return { k: '', audio: new Blob([Uint8Array.from(atob(SILENT_WAV.split(',')[1]), (c) => c.charCodeAt(0))], { type: 'audio/wav' }), ci, w0, w1, map, sp, t: Array(w1 - w0).fill(0), end: 0.1 };
+  // Chirp 3 HD pauses on a blank line, so paragraph breaks inside a chunk are sent as one: the audio then has a real, detectable paragraph pause
+  const hd = /Chirp3/.test(voice); const text = sp.map((x, j) => (j ? (hd && sp[j - 1].para ? '\n\n' : ' ') : '') + x.t).join('');
   const k = `v2|${voice}|${hashT(text)}`;
   if (prefetch && EL.pending.size) return null; // never run two requests at once
   const rec = await elTTS(text, voice, k);
-  const wt = elWordTimes(rec.al, spoken.length); let j = 0, last = 0; // map spoken-word times back onto every word
-  const t = sw.map((x) => (x ? (last = wt.t[j++]) : last));
-  return { ...rec, ci, w0, w1, t, end: wt.end };
+  const wt = elWordTimes(rec.al, sp.length);
+  const r = { ...rec, base: rec, ci, w0, w1, map, sp, wt: wt.t, wend: wt.end, est: !!rec.est || !!wt.bad, end: wt.end };
+  elRetime(r, null, wt.end); // provisional until the audio has been decoded
+  return r;
 }
 const elRate = () => { if (EL.natural) return 1; const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
 function elStop() { EL.gen++; elHint(false); cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
@@ -1132,18 +1184,31 @@ async function elFrom(i, level = 0) {
   if (gen !== EL.gen || !R.playing) return;
   EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
-  await new Promise((r) => (EA.readyState >= 1 ? r() : EA.addEventListener('loadedmetadata', r, { once: true })));
-  if (rec.est && EA.duration && rec.end) { const f = EA.duration / rec.end; rec.t = rec.t.map((x) => x * f); rec.end = EA.duration; } // estimated (Chirp 3) timings -> real length
-  EA.currentTime = rec.t[Math.max(0, i - rec.w0)] || 0; EA.playbackRate = elRate();
+  try { await new Promise((r, j) => { if (EA.readyState >= 1) return r(); EA.addEventListener('loadedmetadata', r, { once: true }); EA.addEventListener('error', () => j(new Error('audio')), { once: true }); }); }
+  catch (e) { elHint(false); if (gen === EL.gen) { toast('Couldn’t load the audio.'); pause(); } return; }
+  if (gen !== EL.gen || !R.playing) return;
+  // Timings follow the chunk's REAL audio: estimated voices are re-laid-out over the speech found in the decoded audio (leading/trailing
+  // silence and every pause matched to the text), then mapped onto the element's own timeline (exact voices keep the provider's times).
+  const mdur = Number.isFinite(EA.duration) && EA.duration > 0 ? EA.duration : 0;
+  const apply = (res) => { if (gen !== EL.gen) return; const dd = res ? res.dur : (mdur || rec.wend); const f = res && mdur && Math.abs(mdur - dd) / dd > 0.01 ? mdur / dd : 1; elRetime(rec, res ? res.an : null, dd, f); };
+  if (rec.est) {
+    let res = rec.an && rec.adur ? { an: rec.an, dur: rec.adur } : null;
+    if (!res) { const p = elAnalyze(rec); res = await Promise.race([p, new Promise((r) => setTimeout(r, 300, null))]); if (!res) p.then((v) => v && apply(v)); } // late result is applied while playing
+    if (gen !== EL.gen || !R.playing) return;
+    apply(res || null);
+  } else elRetime(rec, null, mdur);
+  EA.currentTime = i > rec.w0 ? rec.t[i - rec.w0] || 0 : 0; EA.playbackRate = elRate();
   const next = chunkFrom(rec.w1, level + 1);
   EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos();
     const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
     const gap = chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
   try { await EA.play(); } catch (e) { elHint(false); console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
   elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0;
-  // read-ahead: next chunk starts fetching as soon as this one plays (at most one request in flight)
-  if (next) elGet(next, true).catch((e) => console.warn('prefetch', e.message));
-  const loop = () => { if (gen !== EL.gen) return; const ms = EA.currentTime; const t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= R.i - 1) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } EL.raf = requestAnimationFrame(loop); };
+  // read-ahead: next chunk starts fetching as soon as this one plays (at most one request in flight); its audio is analysed as soon as it lands
+  if (next) elGet(next, true).then((r) => r && r.est && elAnalyze(r)).catch((e) => console.warn('prefetch', e.message));
+  // The highlight is a pure function of the audio clock: the last word whose start time <= EA.currentTime. No counters, no accumulated
+  // state, so it re-anchors itself every frame (and at every chunk start via the new rec.t) and may also correct backwards.
+  const loop = () => { if (gen !== EL.gen) return; if (!EA.seeking) { const ms = EA.currentTime, t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } } EL.raf = requestAnimationFrame(loop); };
   loop();
 }
 
@@ -1347,4 +1412,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch(() => {});
 }
-window.__sr = { EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+window.__sr = { NS, play, pause, seek, speakWords, elSpoken, EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
