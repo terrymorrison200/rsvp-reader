@@ -63,15 +63,15 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .reading{cursor:none}
 .stage{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;cursor:pointer;touch-action:manipulation;min-height:0}
 .rsvp{position:relative;width:100%;height:calc(var(--word-size)*2.4);font-family:var(--word-font);font-size:var(--word-size)}
-.word{position:absolute;left:0;right:0;top:50%;height:1.3em;transform:translateY(-50%);white-space:pre;line-height:1.3em}
-.word .orp{position:absolute;left:42%;transform:translateX(-50%);color:var(--focus);top:0}
-.word .pre{position:absolute;right:58%;top:0;margin-right:var(--orp-half,0)}
-.word .post{position:absolute;left:42%;top:0;margin-left:var(--orp-half,0)}
-.guide{position:absolute;left:42%;width:2px;height:16%;background:var(--fg);opacity:0;transform:translateX(-50%);transition:opacity .3s}
+.word{position:absolute;left:0;right:0;top:50%;height:1.3em;transform:translateY(-50%);white-space:pre;line-height:1.3em;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center}
+.word .pre{justify-self:end;text-align:right}
+.word .orp{color:var(--pivot,var(--focus))}
+.word .post{justify-self:start;text-align:left}
+.guide{position:absolute;left:50%;width:2px;height:16%;background:var(--fg);opacity:0;transform:translateX(-50%);transition:opacity .3s}
 .guide.top{top:6%} .guide.bottom{bottom:6%}
 .guide::before{content:"";position:absolute;left:-60vw;right:-60vw;height:1px;background:linear-gradient(90deg,transparent,var(--fg),transparent);opacity:.5}
 .guide.top::before{top:0}.guide.bottom::before{bottom:0}
-.show-guides .guide{opacity:.18}
+.show-guides .guide{opacity:.3}
 .tap-hint{position:absolute;bottom:18%;font-size:13px;color:var(--mute);letter-spacing:.5px;transition:opacity .4s}
 .reading .tap-hint{opacity:0}
 .context{position:absolute;left:50%;top:6%;width:min(680px,90%);transform:translate(-50%,8px);font-family:Literata,Georgia,serif;font-size:17px;line-height:1.65;color:var(--mute);opacity:0;pointer-events:none;transition:opacity .35s var(--ease),transform .35s var(--ease);max-height:34%;overflow:hidden;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);padding:14px 0}

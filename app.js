@@ -1,4 +1,4 @@
-const APP_VER = 'v24';
+const APP_VER = 'v25';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader
@@ -42,6 +42,7 @@ function applySettings() {
   document.body.dataset.theme = S.theme;
   const r = document.documentElement.style;
   r.setProperty('--focus', S.color);
+  r.setProperty('--pivot', (S.color.toLowerCase() === '#ff4d4d' && (S.theme === 'light' || S.theme === 'sepia')) ? '#d92b2b' : S.color); // default red darkened a touch on light themes for contrast
   r.setProperty('--word-size', Math.min(S.size, Math.floor(innerWidth / 7.5)) + 'px');
   r.setProperty('--word-font', FONTS[S.font]);
   document.querySelector('meta[name=theme-color]').content = getComputedStyle(document.body).getPropertyValue('--bg').trim() || '#0f1115';
@@ -76,12 +77,16 @@ function tokenize(text) {
   }
   return words;
 }
+// Optimal recognition point: pick by letter count (leading/trailing punctuation ignored, inner - ' also ignored) and always land on a letter/digit.
+// 1 -> 1st, 2-5 -> 2nd, 6-9 -> 3rd, 10-13 -> 4th, 14+ -> 5th. Returns the index (UTF-16) of the pivot in w.
 function orpIndex(w) {
-  const core = w.replace(/^[^\p{L}\p{N}]+/u, ''); const lead = w.length - core.length;
-  const L = core.replace(/[^\p{L}\p{N}]+$/u, '').length;
-  const i = L <= 1 ? 0 : L <= 5 ? 1 : L <= 9 ? 2 : L <= 13 ? 3 : 4;
-  return Math.min(lead + i, w.length - 1);
+  const idx = []; const re = /[\p{L}\p{N}]/gu; let m;
+  while ((m = re.exec(w))) idx.push(m.index);
+  if (!idx.length) { const k = w.search(/\S/); return k < 0 ? 0 : k; }   // punctuation-only token ("—", "..."): first mark
+  const L = idx.length; const n = L <= 1 ? 0 : L <= 5 ? 1 : L <= 9 ? 2 : L <= 13 ? 3 : 4;
+  return idx[Math.min(n, L - 1)];
 }
+const letterCount = (t) => (t.match(/[\p{L}\p{N}]/gu) || []).length;
 function mdToText(md) {
   const chapters = []; const lines = md.replace(/\r/g, '').split('\n'); const out = [];
   for (let l of lines) {
@@ -742,25 +747,33 @@ async function closeReader() {
 }
 
 function chunkAt(i) { const n = S.chunk; const out = [R.words[i]]; for (let k = 1; k < n && i + k < R.words.length; k++) { if (R.words[i + k - 1].end >= 2) break; out.push(R.words[i + k]); } return out; }
+const PIVOT_RE = /^[\s\S]\p{M}*/u;
+function fitWord() { // pivot is pinned at the exact center by a 1fr|auto|1fr grid; shrink the font only if either side would run off screen
+  const word = $('#word'), box = $('#rsvp'); word.style.fontSize = '';
+  const W = box.clientWidth; if (!W) return;
+  const half = W / 2 - 12, base = parseFloat(getComputedStyle(word).fontSize) || 56;
+  const side = Math.max($('#wPre').getBoundingClientRect().width, $('#wPost').getBoundingClientRect().width) + $('#wOrp').getBoundingClientRect().width / 2;
+  if (side > half) word.style.fontSize = Math.max(8, base * half / side) + 'px';
+}
 function render() {
   const w = R.words[R.i]; if (!w) return; ctxFollow();
   const chunk = chunkAt(R.i);
   let text, oi;
   if (chunk.length === 1) { text = w.t; oi = orpIndex(text); }
   else { const mid = Math.floor((chunk.length - 1) / 2); const before = chunk.slice(0, mid).map((x) => x.t).join(' '); text = chunk.map((x) => x.t).join(' '); oi = (before ? before.length + 1 : 0) + orpIndex(chunk[mid].t); }
-  $('#wPre').textContent = text.slice(0, oi); $('#wOrp').textContent = text[oi] || ''; $('#wPost').textContent = text.slice(oi + 1);
-  const half = $('#wOrp').getBoundingClientRect().width / 2;
-  $('#word').style.setProperty('--orp-half', half + 'px');
+  const pv = (text.slice(oi).match(PIVOT_RE) || [''])[0];
+  $('#wPre').textContent = text.slice(0, oi); $('#wOrp').textContent = pv; $('#wPost').textContent = text.slice(oi + pv.length);
+  fitWord();
   updateProgress();
 }
 const curChap = (i = R.i) => { let k = -1; for (let j = 0; j < (R.chapters || []).length; j++) { if (R.chapters[j].word <= i) k = j; else break; } return k; };
-const fmtDur = (words) => { const m = Math.max(1, Math.round((words / S.wpm) * (S.smart ? 1.12 : 1))); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+const fmtDur = (words, from = R.i) => { const m = Math.max(1, Math.round(wordsToMs(from, Math.min(R.words.length, from + words)) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
 const chapLabel = (k) => { const t = R.chapters[k].title.replace(/^(chapter|ch\.?)\s+([\dIVXLCDM]+)\.?\s*(—\s*)?/i, 'Ch $2 · '); return t.replace(/ · $/, ''); };
 function updateChapLine(i = R.i, scrub = false) {
   const el = $('#chapLine'); if (!el) return; const n = R.words.length; const pct = Math.round((n > 1 ? i / (n - 1) : 0) * 100);
   const k = curChap(i); if (k < 0 || R.chapters.length < 2) { el.textContent = ''; return; }
   const end = R.chapters[k + 1]?.word ?? n;
-  el.textContent = scrub ? `${chapLabel(k)} · ${pct}%` : `${chapLabel(k)} · ${pct}% · ${fmtDur(end - i)} left in chapter · ${fmtDur(n - i)} in book`;
+  el.textContent = scrub ? `${chapLabel(k)} · ${pct}%` : `${chapLabel(k)} · ${pct}% · ${fmtDur(end - i, i)} left in chapter · ${fmtDur(n - i, i)} in book`;
 }
 function jumpChap(d) { const k = curChap(); let t = k + d; if (d < 0 && k >= 0 && R.i - R.chapters[k].word > 30) t = k; t = Math.max(0, Math.min(R.chapters.length - 1, t)); if (R.chapters[t]) { seek(R.chapters[t].word); toast(chapLabel(t)); } }
 function updateProgress() {
@@ -768,21 +781,37 @@ function updateProgress() {
   const pr = $('#progress'); if (!pr.matches(':active')) pr.value = Math.round(pct * 1000);
   pr.style.setProperty('--fill', pct * 100 + '%');
   $('#posLabel').textContent = Math.round(pct * 100) + '%'; updateChapLine();
-  const secs = Math.round(((n - R.i) / S.wpm) * 60 * (S.smart ? 1.12 : 1));
+  const secs = Math.round(wordsToMs(R.i, n) / 1000);
   const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
   $('#remainLabel').textContent = (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
 }
+/* RSVP timing (v25). Multiplier on the base 60000/wpm ms for one word; additive so a long word that ends a sentence isn't compounded.
+   long words +0.15 per letter beyond 6 (cap +0.9); , ; : and dashes 1.3x; . ! ? … 1.75x; paragraph end 2.3x; numbers +0.2. Narration/audio highlight does not use this. */
+const T_LONG = 0.15, T_LONG_CAP = 0.9, T_COMMA = 1.3, T_SENT = 1.75, T_PARA = 2.3, T_NUM = 0.2;
+function wordMult(w) {
+  const t = w.t; let m = 1; const L = letterCount(t);
+  if (L > 6) m += Math.min(T_LONG_CAP, (L - 6) * T_LONG);
+  if (/\d/.test(t)) m += T_NUM;
+  const tail = t.replace(/["'”’“‘)\]}»*_]+$/, '');
+  let p = 1;
+  if (w.end === 3) p = T_PARA;
+  else if (/[.!?…]$/.test(tail) && w.end >= 2) p = T_SENT;
+  else if (/[,;:—–-]$/.test(tail)) p = T_COMMA;
+  return m + (p - 1);
+}
 function delayFor(chunk) {
   let ms = (60000 / S.wpm) * chunk.length;
-  if (S.smart) {
-    const last = chunk[chunk.length - 1]; const len = Math.max(...chunk.map((c) => c.t.length));
-    if (last.end === 3) ms *= 2.6; else if (last.end === 2) ms *= 2.0; else if (last.end === 1) ms *= 1.4;
-    if (len > 8) ms *= 1 + Math.min(0.6, (len - 8) * 0.07);
-    if (/\d/.test(last.t)) ms *= 1.2;
-  }
+  if (S.smart) ms = (60000 / S.wpm) * chunk.reduce((a, c) => a + wordMult(c), 0);
   if (S.ramp && R.rampN < 12) { ms *= 1 + (12 - R.rampN) * 0.06; R.rampN++; }
   return ms;
 }
+// cumulative multiplier table (built once per document) so time-left estimates match the real pacing
+function cumMult() {
+  if (R._cumFor !== R.words) { const n = R.words.length, c = new Float64Array(n + 1); for (let i = 0; i < n; i++) c[i + 1] = c[i] + (S.smart ? wordMult(R.words[i]) : 1); R._cum = c; R._cumFor = R.words; R._cumSmart = S.smart; }
+  else if (R._cumSmart !== S.smart) { R._cumFor = null; return cumMult(); }
+  return R._cum;
+}
+const wordsToMs = (from, to) => { const c = cumMult(); return (c[to] - c[from]) * 60000 / S.wpm; };
 function tick() {
   const chunk = chunkAt(R.i);
   R.timer = setTimeout(() => {
@@ -1412,4 +1441,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
   }).catch(() => {});
 }
-window.__sr = { NS, play, pause, seek, speakWords, elSpoken, EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+window.__sr = { NS, orpIndex, wordMult, delayFor, fitWord, render, play, pause, seek, speakWords, elSpoken, EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
