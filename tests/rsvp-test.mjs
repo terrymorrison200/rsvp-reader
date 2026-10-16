@@ -76,15 +76,22 @@ for (const [name, vp] of [['portrait 390x844', { width: 390, height: 844 }], ['l
       if (Math.abs(t.cx - g.pivotC) > 0.6) fail.push(`${k} off pivot ${(t.cx - g.pivotC).toFixed(2)}`);
       const eff = { r: c.r * c.a + bgc.r * (1 - c.a), g: c.g * c.a + bgc.g * (1 - c.a), b: c.b * c.a + bgc.b * (1 - c.a) }; const cr = ratio(eff, bgc); if (cr < 2.5) fail.push(`${k} contrast ${cr.toFixed(2)}`); t.cr = cr; }
     if (!(g.top.b < g.pivotM - 0.4 * g.fs && g.bottom.t > g.pivotM + 0.4 * g.fs)) fail.push('ticks not above/below word');
-    if (g.linetop.h < 1 || g.linetop.w < 100) fail.push('hairline size');
+    if (g.linetop.h < 1 || g.linetop.w < 100) fail.push('hairline size'); if (Math.abs(g.linetop.w - 390) > 1) fail.push('hairline not full width ' + g.linetop.w);
     // real pixels: screenshot, sample the tick centre vs a pixel 8px to the left of it
     const png = (await p.screenshot()).toString('base64');
     const px = await p.evaluate(async ({ png, pts, dpr }) => { const im = new Image(); im.src = 'data:image/png;base64,' + png; await im.decode(); const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
       return pts.map(([x, y]) => { const d = cx.getImageData(Math.round(x * dpr), Math.round(y * dpr), 1, 1).data; const l = cx.getImageData(Math.round((x - 8) * dpr), Math.round(y * dpr), 1, 1).data; return [[d[0], d[1], d[2]], [l[0], l[1], l[2]]]; }); }, { png, pts: [[g.top.cx, g.top.cy], [g.bottom.cx, g.bottom.cy]], dpr });
     px.forEach(([on, off], i) => { const cr = ratio({ r: on[0], g: on[1], b: on[2] }, { r: off[0], g: off[1], b: off[2] }); if (cr < 2) fail.push(`pixel ${i ? 'bottom' : 'top'} tick ${on} vs bg ${off} contrast ${cr.toFixed(2)}`); });
     ok(!fail.length && !errs.length, `${theme} @${dpr}x guides: ticks ${g.top.w}x${g.top.h.toFixed(0)} ${g.top.color} on ${g.bg}, contrast ${g.top.cr.toFixed(1)}:1, rendered pixel ${px[0][0]} vs bg ${px[0][1]}` + (fail.length ? ' :: ' + fail.join(' | ') + errs.join(';') : '')); await ctx.close(); }
+  // v27 migration: stale saved settings with guides:false and no settings version are reset to ON once; a later explicit OFF sticks
+  { const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true }); const p = await ctx.newPage();
+    await p.addInitScript(() => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); localStorage.setItem('sr.settings', JSON.stringify({ theme: 'sepia', guides: false })); } });
+    await p.goto(URL_); await p.waitForTimeout(500); let d = await p.evaluate(() => [getComputedStyle(document.querySelector('.guide.top')).display, JSON.parse(localStorage.getItem('sr.settings')).sv]);
+    ok(d[0] === 'block' && d[1] >= 27, `legacy guides:false migrated to ON once (display ${d[0]}, sv ${d[1]})`);
+    await p.evaluate(() => { __sr.S.guides = false; localStorage.setItem('sr.settings', JSON.stringify(__sr.S)); }); await p.reload(); await p.waitForTimeout(500);
+    d = await p.evaluate(() => getComputedStyle(document.querySelector('.guide.top')).display); ok(d === 'none', 'explicit OFF after migration persists'); await ctx.close(); }
   // guides can be turned off in settings
-  { const { p, ctx } = await open({ width: 390, height: 844 }, { guides: false }); const d = await p.evaluate(() => getComputedStyle(document.querySelector('.guide.top')).display); ok(d === 'none', 'Guide marks setting off hides ticks'); await ctx.close(); } }
+  { const { p, ctx } = await open({ width: 390, height: 844 }, { guides: false, sv: 27 }); const d = await p.evaluate(() => getComputedStyle(document.querySelector('.guide.top')).display); ok(d === 'none', 'Guide marks setting off hides ticks'); await ctx.close(); } }
 // app/sw versioning: cache name == app version, CSS/JS precached and cache-busted, shell fetched past the HTTP cache
 { const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const v = app.match(/APP_VER = '(v\d+)'/)[1], cn = sw.match(/const V='swiftread-(v\d+)'/)[1]; const assets = sw.match(/ASSETS=\[(.*?)\]/)[1];

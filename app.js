@@ -1,4 +1,4 @@
-const APP_VER = 'v26';
+const APP_VER = 'v27';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader
@@ -35,7 +35,9 @@ const idb = {
 
 /* ---------------- Settings ---------------- */
 const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '' };
+const SETTINGS_VER = 27; // bump to force one-time migrations of saved settings
 const S = Object.assign({}, DEF, JSON.parse(localStorage.getItem('sr.settings') || '{}'));
+if ((S.sv || 0) < SETTINGS_VER) { S.guides = true; S.sv = SETTINGS_VER; try { localStorage.setItem('sr.settings', JSON.stringify(S)); } catch (e) {} } // v27: guide marks back ON once for everyone (an older/accidental 'off' left existing users with no guides)
 const saveS = () => localStorage.setItem('sr.settings', JSON.stringify(S));
 const FONTS = { inter: 'Inter,system-ui,sans-serif', literata: 'Literata,Georgia,serif', mono: 'JBMono,ui-monospace,monospace', dyslexic: 'OpenDyslexic,Inter,sans-serif' };
 function applySettings() {
