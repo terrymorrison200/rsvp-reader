@@ -1,4 +1,4 @@
-const APP_VER = 'v25';
+const APP_VER = 'v26';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader

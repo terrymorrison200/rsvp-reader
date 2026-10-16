@@ -1,4 +1,4 @@
-// RSVP display test (v25): pivot letter choice, pivot pinned at the exact center, guide ticks centered, shrink-to-fit, timing.
+// RSVP display test (v26): pivot letter choice, pivot pinned at the exact center, guide ticks centered, shrink-to-fit, timing.
 //   node tests/rsvp-test.mjs [--shots dir]       (uses Playwright's chromium, or system Chrome if that is what is installed)
 import { chromium } from 'playwright'; import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -53,6 +53,44 @@ for (const [name, vp] of [['portrait 390x844', { width: 390, height: 844 }], ['l
   for (const theme of ['dark', 'oled', 'light', 'sepia']) { const { p, ctx } = await open({ width: 390, height: 844 }, { theme }); await setWord(p, 'Reading'); const [col, bg] = await p.evaluate(() => [getComputedStyle(document.querySelector('#wOrp')).color, getComputedStyle(document.body).backgroundColor]);
     const [a, c] = [lum(col), lum(bg)].sort((x, y) => y - x); const cr = (a + 0.05) / (c + 0.05); ok(cr >= 3, `${theme}: pivot ${col} on ${bg} contrast ${cr.toFixed(2)}:1`); await ctx.close(); } }
 
+// v26 guide ticks: real elements, nonzero size, centered on the pivot, and VISIBLE (real rendered pixels differ from the background) in every theme
+{ const parse = (c) => { const m = c.match(/[\d.]+/g).map(Number); return { r: m[0], g: m[1], b: m[2], a: m.length > 3 ? m[3] : 1 }; };
+  const lum = (c) => { const v = [c.r, c.g, c.b].map((x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const ratio = (x, y) => { const [a, c] = [lum(x), lum(y)].sort((m, n) => n - m); return (a + 0.05) / (c + 0.05); };
+  for (const theme of ['dark', 'oled', 'light', 'sepia']) for (const dpr of [2, 3]) {
+    const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: dpr, isMobile: true, hasTouch: true }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+    await p.addInitScript((s) => localStorage.setItem('sr.settings', JSON.stringify(s)), { wpm: 300, theme });
+    await p.goto(URL_); await p.waitForTimeout(500); await p.click('#pasteBtn'); await p.fill('#pasteTitle', 'g'); await p.fill('#pasteText', 'Hello there world. More text here.'); await p.click('#pasteSave'); await p.waitForTimeout(600);
+    await setWord(p, 'Reading'); await p.evaluate(() => { document.querySelector('#readerView').classList.add('reading'); }); await p.waitForTimeout(700);
+    const g = await p.evaluate(() => { const o = {}; const bg = getComputedStyle(document.body).backgroundColor; o.bg = bg; o.gs = getComputedStyle(document.documentElement).getPropertyValue('--guide');
+      for (const k of ['top', 'bottom']) { const e = document.querySelector('.guide.' + k); const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; const hit = document.elementFromPoint(cx, cy);
+        o[k] = { w: r.width, h: r.height, l: r.left, t: r.top, b: r.bottom, cx, cy, color: cs.backgroundColor, op: parseFloat(cs.opacity), disp: cs.display, vis: cs.visibility, hit: hit === e, tag: e.tagName, parentOk: e.parentElement.id === 'rsvp' }; }
+      const o2 = document.querySelector('#wOrp').getBoundingClientRect(); o.pivotC = o2.left + o2.width / 2; o.pivotM = (o2.top + o2.bottom) / 2; o.fs = parseFloat(getComputedStyle(document.querySelector('#word')).fontSize);
+      for (const k of ['top', 'bottom']) { const e = document.querySelector('.gline.' + k); const r = e.getBoundingClientRect(); o['line' + k] = { w: r.width, h: r.height, disp: getComputedStyle(e).display }; }
+      return o; });
+    const bgc = parse(g.bg); const fail = [];
+    for (const k of ['top', 'bottom']) { const t = g[k], c = parse(t.color);
+      if (!(t.w >= 1.5 && t.h >= 18 && t.h <= 24)) fail.push(`${k} size ${t.w}x${t.h}`);
+      if (t.disp === 'none' || t.vis !== 'visible' || t.op < 1) fail.push(`${k} hidden ${t.disp}/${t.vis}/${t.op}`);
+      if (!t.hit || t.tag !== 'DIV' || !t.parentOk) fail.push(`${k} not top-most real element`);
+      if (Math.abs(t.cx - g.pivotC) > 0.6) fail.push(`${k} off pivot ${(t.cx - g.pivotC).toFixed(2)}`);
+      const eff = { r: c.r * c.a + bgc.r * (1 - c.a), g: c.g * c.a + bgc.g * (1 - c.a), b: c.b * c.a + bgc.b * (1 - c.a) }; const cr = ratio(eff, bgc); if (cr < 2.5) fail.push(`${k} contrast ${cr.toFixed(2)}`); t.cr = cr; }
+    if (!(g.top.b < g.pivotM - 0.4 * g.fs && g.bottom.t > g.pivotM + 0.4 * g.fs)) fail.push('ticks not above/below word');
+    if (g.linetop.h < 1 || g.linetop.w < 100) fail.push('hairline size');
+    // real pixels: screenshot, sample the tick centre vs a pixel 8px to the left of it
+    const png = (await p.screenshot()).toString('base64');
+    const px = await p.evaluate(async ({ png, pts, dpr }) => { const im = new Image(); im.src = 'data:image/png;base64,' + png; await im.decode(); const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+      return pts.map(([x, y]) => { const d = cx.getImageData(Math.round(x * dpr), Math.round(y * dpr), 1, 1).data; const l = cx.getImageData(Math.round((x - 8) * dpr), Math.round(y * dpr), 1, 1).data; return [[d[0], d[1], d[2]], [l[0], l[1], l[2]]]; }); }, { png, pts: [[g.top.cx, g.top.cy], [g.bottom.cx, g.bottom.cy]], dpr });
+    px.forEach(([on, off], i) => { const cr = ratio({ r: on[0], g: on[1], b: on[2] }, { r: off[0], g: off[1], b: off[2] }); if (cr < 2) fail.push(`pixel ${i ? 'bottom' : 'top'} tick ${on} vs bg ${off} contrast ${cr.toFixed(2)}`); });
+    ok(!fail.length && !errs.length, `${theme} @${dpr}x guides: ticks ${g.top.w}x${g.top.h.toFixed(0)} ${g.top.color} on ${g.bg}, contrast ${g.top.cr.toFixed(1)}:1, rendered pixel ${px[0][0]} vs bg ${px[0][1]}` + (fail.length ? ' :: ' + fail.join(' | ') + errs.join(';') : '')); await ctx.close(); }
+  // guides can be turned off in settings
+  { const { p, ctx } = await open({ width: 390, height: 844 }, { guides: false }); const d = await p.evaluate(() => getComputedStyle(document.querySelector('.guide.top')).display); ok(d === 'none', 'Guide marks setting off hides ticks'); await ctx.close(); } }
+// app/sw versioning: cache name == app version, CSS/JS precached and cache-busted, shell fetched past the HTTP cache
+{ const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const v = app.match(/APP_VER = '(v\d+)'/)[1], cn = sw.match(/const V='swiftread-(v\d+)'/)[1]; const assets = sw.match(/ASSETS=\[(.*?)\]/)[1];
+  ok(v === cn, `app ${v} == sw cache swiftread-${cn}`); ok(/'styles\.css'/.test(assets) && /'app\.js'/.test(assets) && /'index\.html'/.test(assets), 'CSS/JS/HTML in precache list');
+  ok(html.includes(`styles.css?v=${v.slice(1)}`) && html.includes(`app.js?v=${v.slice(1)}`), 'index.html links versioned CSS/JS'); ok(/cache:'reload'/.test(sw), 'sw bypasses HTTP cache for shell'); }
+
 // timing
 { const { p, ctx } = await open({ width: 390, height: 844 }, { wpm: 300, smart: true, ramp: false });
   const T = await p.evaluate(() => { const tk = __sr.tokenize; const one = (s) => { const w = tk(s); __sr.R.rampN = 99; return { m: __sr.wordMult(w[0]), ms: __sr.delayFor([w[0]]) }; };
@@ -79,6 +117,6 @@ for (const [name, vp] of [['portrait 390x844', { width: 390, height: 844 }], ['l
 // screenshots (phone viewport)
 if (shotsDir) {
   const shots = [['portrait', { width: 390, height: 844 }, 'dark', 'a'], ['portrait', { width: 390, height: 844 }, 'dark', '“Hello,”'], ['portrait', { width: 390, height: 844 }, 'dark', 'understand,'], ['portrait', { width: 390, height: 844 }, 'light', 'Extraordinary.'], ['portrait', { width: 390, height: 844 }, 'dark', 'antidisestablishmentarianism'], ['landscape', { width: 844, height: 390 }, 'dark', '(Responsibilities…)'], ['portrait', { width: 390, height: 844 }, 'sepia', 'NEVERTHELESS']];
-  let n = 0; for (const [o, vp, theme, w] of shots) { const { p, ctx } = await open(vp, { theme }); await setWord(p, w); await p.evaluate(() => { document.querySelector('#contextBox').style.display = 'none'; document.querySelector('#readerView').classList.add('reading'); }); await p.waitForTimeout(600); const f = path.join(shotsDir, `rsvp-v25-${++n}-${o}-${theme}.png`); await p.screenshot({ path: f }); console.log('shot', f); await ctx.close(); }
+  let n = 0; for (const [o, vp, theme, w] of shots) { const { p, ctx } = await open(vp, { theme }); await setWord(p, w); await p.evaluate(() => { document.querySelector('#contextBox').style.display = 'none'; document.querySelector('#readerView').classList.add('reading'); }); await p.waitForTimeout(600); const f = path.join(shotsDir, `rsvp-v26-${++n}-${o}-${theme}.png`); await p.screenshot({ path: f }); console.log('shot', f); await ctx.close(); }
 }
 await b.close(); srv.close(); console.log(fails ? `${fails} FAILED` : 'ALL PASSED'); process.exit(fails ? 1 : 0);
