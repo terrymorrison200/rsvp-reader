@@ -111,6 +111,16 @@ for (const [name, vp] of [['portrait 390x844', { width: 390, height: 844 }], ['l
   ok(near(T.period, 1.75) && near(T.bang, 1.75) && near(T.q, 1.75), `. ! ? (incl. closing quote) x1.75 (${T.period}, ${T.bang}, ${T.q})`);
   ok(near(T.para, 2.3) && near(T.paraMs, 2.3 * 200), `paragraph end x2.3 and ms = 200*2.3 at 300 wpm (${T.para}, ${T.paraMs})`);
   ok(near(T.quote, 1) && near(T.num, 1.2) && T.hy > 1.2 && T.caps > 1.5, `quote-only x1, number +0.2 (${T.num}), hyphenated (${T.hy.toFixed(2)}), ALL CAPS long (${T.caps.toFixed(2)})`);
+  // v28: hyphen chains are paced at least as long as their parts flashed separately; ordinary words unchanged
+  const H = await p.evaluate(() => { const tk = __sr.tokenize; const m = (s, i = 0) => __sr.wordMult(tk(s)[i]); __sr.S.smart = true; __sr.S.ramp = false; __sr.R.rampN = 99;
+    const chain = m('well-to-do-looking dog'); const parts = ['well-', 'to-', 'do-', 'looking'].map((x) => m(x + ' dog'));
+    const ms = (wpm) => { __sr.S.wpm = wpm; return __sr.delayFor([tk('well-to-do-looking dog')[0]]); }; const msParts = (wpm) => { __sr.S.wpm = wpm; return ['well-', 'to-', 'do-', 'looking'].reduce((a, x) => a + __sr.delayFor([tk(x + ' dog')[0]]), 0); };
+    return { chain, sum: parts.reduce((a, b) => a + b, 0), ms300: ms(300), p300: msParts(300), ms150: ms(150), p150: msParts(150), ms600: ms(600), p600: msParts(600), endChain: m('well-to-do-looking. Dog'), endSum: m('well- x') + m('to- x') + m('do- x') + m('looking. Dog'), tokens: tk('a well-to-do-looking man, said-so.').map((w) => w.t),
+      plain: [m('cat dog'), m('extraordinary dog'), m('cat, dog'), m('cat. Dog'), m('1984 dog'), m('-dash dog'), m('dash- dog'), m('— dog')] }; });
+  ok(H.chain >= H.sum - 1e-9 && H.chain > 4, `'well-to-do-looking' total multiplier (${H.chain.toFixed(2)}) >= sum of segments (${H.sum.toFixed(2)})`);
+  ok(H.ms300 >= H.p300 - 1e-6 && H.ms150 >= H.p150 - 1e-6 && H.ms600 >= H.p600 - 1e-6, `chain display ms >= segments at 150/300/600 wpm (${H.ms150.toFixed(0)}/${H.p150.toFixed(0)}, ${H.ms300.toFixed(0)}/${H.p300.toFixed(0)}, ${H.ms600.toFixed(0)}/${H.p600.toFixed(0)})`);
+  ok(Math.abs(H.endChain - H.endSum) < 1e-9 && H.tokens.length === 4 && H.tokens[1] === 'well-to-do-looking', 'trailing punctuation pause on last part; tokens not split (indexes unchanged)');
+  ok(near(H.plain[0], 1) && near(H.plain[1], 1 + 0.9) && near(H.plain[2], 1.3) && near(H.plain[3], 1.75) && near(H.plain[4], 1.2) && near(H.plain[5], 1) && near(H.plain[6], 1.3) && near(H.plain[7], 1.3), `ordinary words/punctuation unchanged (${H.plain.map((x) => x.toFixed(2))})`);
   // wpm respected, smart off => flat, ramp unchanged
   const W = await p.evaluate(() => { const w = __sr.tokenize('extraordinary, dog'); const out = {}; for (const wpm of [150, 300, 600]) { __sr.S.wpm = wpm; __sr.S.smart = true; __sr.R.rampN = 99; out['s' + wpm] = __sr.delayFor([w[0]]); __sr.S.smart = false; out['f' + wpm] = __sr.delayFor([w[0]]); } return out; });
   ok(near(W.f300, 200, 0.001) && near(W.f150, 400, 0.001) && near(W.f600, 100, 0.001), 'smart off: flat 60000/wpm');

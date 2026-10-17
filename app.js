@@ -1,4 +1,4 @@
-const APP_VER = 'v27';
+const APP_VER = 'v28';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader
@@ -790,8 +790,17 @@ function updateProgress() {
 /* RSVP timing (v25). Multiplier on the base 60000/wpm ms for one word; additive so a long word that ends a sentence isn't compounded.
    long words +0.15 per letter beyond 6 (cap +0.9); , ; : and dashes 1.3x; . ! ? … 1.75x; paragraph end 2.3x; numbers +0.2. Narration/audio highlight does not use this. */
 const T_LONG = 0.15, T_LONG_CAP = 0.9, T_COMMA = 1.3, T_SENT = 1.75, T_PARA = 2.3, T_NUM = 0.2;
+// v28: a hyphenated compound ("well-to-do-looking") is one token (so indexes, highlighting and narration sync are untouched) but is paced as if flashed in parts:
+// split after each inner hyphen ('well-', 'to-', 'do-', 'looking'); each part gets its own length/pause multiplier (non-final parts end in '-', i.e. the comma pause),
+// the last part carries the token's own trailing punctuation / sentence / paragraph pause. Total >= sum of the parts at any WPM.
+const HY_SPLIT = /(?<=[\p{L}\p{N}]-)(?=[\p{L}\p{N}])/u;
 function wordMult(w) {
-  const t = w.t; let m = 1; const L = letterCount(t);
+  const t = w.t;
+  if (t.length > 2 && t.indexOf('-') > 0) { const parts = t.split(HY_SPLIT); if (parts.length > 1) return parts.reduce((a, s, i) => a + partMult(s, i === parts.length - 1 ? w.end : 0), 0); }
+  return partMult(t, w.end);
+}
+function partMult(t, end) {
+  const w = { t, end }; let m = 1; const L = letterCount(t);
   if (L > 6) m += Math.min(T_LONG_CAP, (L - 6) * T_LONG);
   if (/\d/.test(t)) m += T_NUM;
   const tail = t.replace(/["'”’“‘)\]}»*_]+$/, '');
