@@ -626,6 +626,10 @@ async function loadSuggestions() {
     $$('#forYou .sug').forEach((b) => (b.onclick = () => { const s = list[+b.dataset.i];
       if (s.source === 'gutenberg' && s.id) { openGutenberg(); showBook(+s.id); }
       else if (s.source === 'general-conference' && CH.gc) { const t = CH.gc.talks.find((t) => t.id === s.id); if (t) loadChurchDoc({ uri: t.uri, sourceId: t.id, title: t.title, author: t.speaker, source: 'general-conference', audio: t.audio }); }
+      else if (s.source === 'library' && s.url) { (async () => { showLoading('Loading ' + s.title + '…');
+        try { const res = await fetch(s.url); if (!res.ok) throw new Error(res.status); const text = await res.text();
+          const id = await addDoc({ title: s.title, author: s.author, source: 'library', sourceId: s.id, text }); hideLoading(); openDoc(id);
+        } catch (e) { console.error(e); hideLoading(); toast('Couldn’t load that book right now. Please try again shortly.'); } })(); }
       else if (s.url) window.open(s.url, '_blank'); }));
   } catch (e) { console.warn('suggestions', e); }
 }
