@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=31">
+<link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body data-theme="dark">
 <div id="app">
@@ -138,6 +138,7 @@
       <div class="extra-row">
         <button class="pill" id="narrateBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Narrate</button>
         <button class="pill" id="audioBtn" aria-pressed="false" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>Speaker</button>
+        <button class="pill" id="modeBtn" aria-pressed="false" title="Switch between RSVP and full-page reading"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h5"/></svg>Page view</button>
         <button class="pill" id="highlightBtn"><svg viewBox="0 0 24 24"><path d="M12 2l3 7 7 .6-5.3 4.7 1.6 7.2L12 17.8 5.7 21.5l1.6-7.2L2 9.6 9 9z"/></svg>Save sentence</button>
       </div>
     </footer>
@@ -189,6 +190,7 @@
     <label class="toggle"><input type="checkbox" id="guidesIn"><span></span>Guide marks</label>
     <label class="toggle"><input type="checkbox" id="rampIn"><span></span>Ramp-up start</label>
     <label class="toggle"><input type="checkbox" id="smartIn"><span></span>Smart pauses</label>
+    <label class="toggle"><input type="checkbox" id="pageModeIn"><span></span>Page view (no word box)</label>
   </div>
   <div class="set-group"><label>Narration voice</label><select id="voiceSel" class="field"></select>
     <div class="sync-row"><span id="elStatus" class="small-mute"></span><button class="btn sm" id="voicePreview" type="button">▶ Preview</button></div>
@@ -224,6 +226,6 @@
 
 <div id="updBar" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 14px;border-radius:12px;background:#222;color:#fff;display:none;align-items:center;justify-content:space-between">Update available <button class="btn sm" id="updBtn">Reload</button></div>
 <script src="vendor/jszip.min.js"></script>
-<script type="module" src="app.js?v=31"></script>
+<script type="module" src="app.js?v=32"></script>
 </body>
 </html>

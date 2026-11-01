@@ -300,3 +300,16 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 .lib-list{grid-template-columns:minmax(0,1fr)}
 .lib-item,.lib-info,.cfm,.gc-row,.gc-row>div,#churchCard{min-width:0;max-width:100%}
 .lib-meta,.gc-t,.cfm-t,.cfm-r,.cfm-next{overflow-wrap:anywhere}
+
+/* Page mode: full-height paragraph reader, no RSVP box */
+.page-mode #readerView .rsvp{display:none}
+.page-mode #readerView .stage{justify-content:flex-start;align-items:stretch;padding:4px calc(16px + var(--sar)) 0 calc(16px + var(--sal))}
+.page-mode #readerView .context{position:relative;left:auto;top:auto;transform:none;flex:1 1 auto;min-height:0;max-height:none;width:100%;max-width:38em;margin:0 auto;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;font-size:19px;line-height:1.7;padding:12px 4px 40vh;color:var(--mute);opacity:1;-webkit-mask-image:linear-gradient(transparent,#000 5%,#000 92%,transparent);mask-image:linear-gradient(transparent,#000 5%,#000 92%,transparent)}
+.page-mode #readerView .context .cur-sent{color:var(--fg)}
+.page-mode #readerView.reading .context.show{opacity:1}
+.page-mode #readerView .tap-hint{position:static;flex:0 0 auto;padding:2px 0 4px;font-size:12px;text-align:center}
+.playing #readerView .stage,.playing #readerView .context{touch-action:none}
+#modeBtn[aria-pressed=true]{color:var(--accent-fg)}
+.page-mode #readerView .controls{position:absolute;left:0;right:0;bottom:0;z-index:5;background:linear-gradient(transparent,var(--bg) 18px);padding-top:18px}
+.page-mode #readerView .stage{padding-bottom:0}
+.page-mode #readerView .context .cur-word{color:var(--focus);font-weight:600}

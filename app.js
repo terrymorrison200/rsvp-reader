@@ -34,7 +34,7 @@ const idb = {
 };
 
 /* ---------------- Settings ---------------- */
-const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '' };
+const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '', mode: 'rsvp' };
 const SETTINGS_VER = 27; // bump to force one-time migrations of saved settings
 const S = Object.assign({}, DEF, JSON.parse(localStorage.getItem('sr.settings') || '{}'));
 if ((S.sv || 0) < SETTINGS_VER) { S.guides = true; S.sv = SETTINGS_VER; try { localStorage.setItem('sr.settings', JSON.stringify(S)); } catch (e) {} } // v27: guide marks back ON once for everyone (an older/accidental 'off' left existing users with no guides)
@@ -42,6 +42,7 @@ const saveS = () => localStorage.setItem('sr.settings', JSON.stringify(S));
 const FONTS = { inter: 'Inter,system-ui,sans-serif', literata: 'Literata,Georgia,serif', mono: 'JBMono,ui-monospace,monospace', dyslexic: 'OpenDyslexic,Inter,sans-serif' };
 function applySettings() {
   document.body.dataset.theme = S.theme;
+  const pm = S.mode === 'page'; document.body.classList.toggle('page-mode', pm); { const b = document.getElementById('modeBtn'); if (b) b.setAttribute('aria-pressed', pm); const c = document.getElementById('pageModeIn'); if (c) c.checked = pm; }
   const r = document.documentElement.style;
   r.setProperty('--focus', S.color);
   r.setProperty('--pivot', (S.color.toLowerCase() === '#ff4d4d' && (S.theme === 'light' || S.theme === 'sepia')) ? '#d92b2b' : S.color); // default red darkened a touch on light themes for contrast
@@ -922,8 +923,8 @@ function setAudioMode(on) {
 function showContext() {
   const w = R.words[R.i]; if (!w) return;
   // paragraph containing word, clipped to ~3 sentences around
-  const big = matchMedia('(max-width:699px)').matches; // phone: tall pane, show more surrounding text
-  const s0 = Math.max(0, w.s - (big ? 4 : 1)), s1 = w.s + (big ? 8 : 1);
+  const pg = S.mode === 'page', big = pg || matchMedia('(max-width:699px)').matches; // phone / Page mode: tall pane, show more surrounding text
+  const s0 = Math.max(0, w.s - (pg ? 12 : big ? 4 : 1)), s1 = w.s + (pg ? 30 : big ? 8 : 1);
   const from = R.sentStart[s0] ?? 0; let to = (R.sentStart[s1 + 1] ?? R.words.length) - 1;
   const box = $('#contextBox'); box.innerHTML = '';
   let lastP = R.words[from].p;
@@ -934,7 +935,7 @@ function showContext() {
     sp.textContent = x.t; sp.dataset.i = k; box.appendChild(sp); box.appendChild(document.createTextNode(' '));
   }
   box.classList.add('show');
-  const cw = box.querySelector('.cur-word'); if (cw) box.scrollTop = cw.offsetTop - box.clientHeight / 2;
+  const cw = box.querySelector('.cur-word'); if (cw) box.scrollTop = cw.offsetTop - box.clientHeight * (S.mode === 'page' ? 1 / 3 : 1 / 2);
 }
 // Keep the paragraph view visible while playing: move the highlight and keep the current word in view.
 function ctxFollow() {
@@ -943,7 +944,8 @@ function ctxFollow() {
   if (el.classList.contains('cur-word')) return;
   box.querySelectorAll('.cur-word').forEach((x) => x.classList.remove('cur-word')); el.classList.add('cur-word');
   const s = R.words[R.i].s; box.querySelectorAll('.w').forEach((x) => x.classList.toggle('cur-sent', R.words[+x.dataset.i].s === s));
-  const top = el.offsetTop - box.scrollTop; if (top < box.clientHeight * 0.2 || top > box.clientHeight * 0.7) box.scrollTo({ top: el.offsetTop - box.clientHeight / 2, behavior: 'smooth' });
+  const top = el.offsetTop - box.scrollTop, pg = S.mode === 'page';
+  if (pg ? (top < box.clientHeight * 0.2 || top > box.clientHeight * 0.45) : (top < box.clientHeight * 0.2 || top > box.clientHeight * 0.7)) box.scrollTo({ top: el.offsetTop - box.clientHeight * (pg ? 1 / 3 : 1 / 2), behavior: 'smooth' });
 }
 const hideContext = () => $('#contextBox').classList.remove('show');
 
@@ -1388,10 +1390,24 @@ $('#readerView').addEventListener('click', (e) => { if (swallowClick) { swallowC
 let revealT; const revealControls = () => { $('#readerView').classList.remove('reading'); clearTimeout(revealT); revealT = setTimeout(() => R.playing && $('#readerView').classList.add('reading'), 3500); };
 $('#progress').oninput = (e) => { const was = R.playing; if (was) pause(); R.i = Math.round((e.target.value / 1000) * (R.words.length - 1)); render(); showContext(); updateChapLine(R.i, true); };
 $('#progress').onchange = () => savePos(true);
-$('#stage').addEventListener('click', (e) => {
-  const w = e.target.closest('#contextBox .w'); if (w) { seek(+w.dataset.i, false); return; }
-  toggle();
-});
+// Tap = play/pause, tap a word = jump there; swipe up = next sentence, swipe down = previous sentence.
+// Touch is handled on touchend (preventDefault kills the synthetic click: no 300ms wait, no double toggle); click only serves mouse.
+// Page/RSVP while PLAYING: the stage takes all touch (touch-action:none), vertical swipes seek by sentence.
+// While PAUSED: a drag that starts inside the scrollable paragraph pane scrolls it natively (no sentence jump); elsewhere swipes still seek.
+const stageTap = (target) => { const w = target.closest && target.closest('#contextBox .w'); if (w && !R.playing) { seek(+w.dataset.i, false); if (S.mode === 'page') play(); return; } toggle(); }; // Page mode: tapping a word starts reading from it
+let T0 = null, lastTouch = 0;
+$('#stage').addEventListener('touchstart', (e) => { if (e.touches.length > 1) { T0 = null; return; } const t = e.touches[0]; T0 = { x: t.clientX, y: t.clientY, t: performance.now(), scroll: !R.playing && !!e.target.closest('#contextBox') }; }, { passive: true });
+$('#stage').addEventListener('touchmove', (e) => { if (T0 && R.playing && e.cancelable) e.preventDefault(); }, { passive: false });
+$('#stage').addEventListener('touchcancel', () => { T0 = null; }, { passive: true });
+$('#stage').addEventListener('touchend', (e) => {
+  if (!T0) return; const t = e.changedTouches[0], dx = t.clientX - T0.x, dy = t.clientY - T0.y, dt = performance.now() - T0.t, s = T0; T0 = null; lastTouch = Date.now();
+  if (e.cancelable) e.preventDefault();
+  const rev = swallowClick; swallowClick = false;
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 500) { if (!rev) stageTap(e.target); return; }
+  if (s.scroll) return; // paused: native scroll of the paragraph pane
+  if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.3 && dt < 800) { if (dy < 0) nextSentence(); else prevSentence(); }
+}, { passive: false });
+$('#stage').addEventListener('click', (e) => { if (Date.now() - lastTouch < 800) return; stageTap(e.target); });
 // show controls briefly on mouse move while reading (desktop)
 let mvT; $('#readerView').addEventListener('mousemove', (e) => { if (!R.playing || e.movementX === 0 && e.movementY === 0) return; $('#readerView').classList.remove('reading'); clearTimeout(mvT); mvT = setTimeout(() => R.playing && $('#readerView').classList.add('reading'), 1600); });
 
@@ -1464,3 +1480,8 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   }).catch(() => {});
 }
 window.__sr = { NS, orpIndex, wordMult, delayFor, fitWord, render, play, pause, seek, speakWords, elSpoken, EL, EA, elChunks, elWordTimes, elGet, addDoc, openDoc, setWpm, R, S, idb, tx, HIST, AU, tokenize, churchPage, churchParas, importFile, gutenbergText }; // test hook
+
+// Reader mode toggle (RSVP <-> Page), persisted in settings
+const setMode = (m) => { S.mode = m; saveS(); applySettings(); if (R.words && R.words.length) showContext(); };
+$('#modeBtn').onclick = (e) => { e.stopPropagation(); setMode(S.mode === 'page' ? 'rsvp' : 'page'); if (R.playing) revealControls(); };
+$('#pageModeIn').onchange = (e) => setMode(e.target.checked ? 'page' : 'rsvp');
