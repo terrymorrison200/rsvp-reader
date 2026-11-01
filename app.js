@@ -922,7 +922,8 @@ function setAudioMode(on) {
 function showContext() {
   const w = R.words[R.i]; if (!w) return;
   // paragraph containing word, clipped to ~3 sentences around
-  const s0 = Math.max(0, w.s - 1), s1 = w.s + 1;
+  const big = matchMedia('(max-width:699px)').matches; // phone: tall pane, show more surrounding text
+  const s0 = Math.max(0, w.s - (big ? 4 : 1)), s1 = w.s + (big ? 8 : 1);
   const from = R.sentStart[s0] ?? 0; let to = (R.sentStart[s1 + 1] ?? R.words.length) - 1;
   const box = $('#contextBox'); box.innerHTML = '';
   let lastP = R.words[from].p;
