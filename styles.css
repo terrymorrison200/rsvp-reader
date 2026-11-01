@@ -293,3 +293,10 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 #readerView input[type=range]{height:24px}
 #readerView .extra-row{gap:6px}
 }
+
+/* Home/library width guards: long nowrap titles must not widen grid/flex tracks */
+.lib-main{overflow-x:hidden;box-sizing:border-box}
+.lib-main *,.lib-main *::before,.lib-main *::after{box-sizing:border-box}
+.lib-list{grid-template-columns:minmax(0,1fr)}
+.lib-item,.lib-info,.cfm,.gc-row,.gc-row>div,#churchCard{min-width:0;max-width:100%}
+.lib-meta,.gc-t,.cfm-t,.cfm-r,.cfm-next{overflow-wrap:anywhere}
