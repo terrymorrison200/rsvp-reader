@@ -1355,6 +1355,12 @@ new IntersectionObserver((es) => { if (es[0].isIntersecting && G.next && $('#gut
 $('#settingsBtn').onclick = $('#settingsBtn2').onclick = () => { $('#relayUrlIn').value = S.relayUrl; $('#relayTokIn').value = S.relayToken; loadVoices(); pollVoices(); $('#syncUrlIn').value = S.syncUrl; $('#syncKeyIn').value = S.syncKey; syncStatus(); openSheet('settingsSheet'); };
 $('#statsBtn').onclick = () => { renderStats(); openSheet('statsSheet'); };
 $('#scrim').onclick = closeSheets;
+// swipe down on a sheet (when scrolled to top) closes it
+$$('.sheet').forEach((sh) => { let y0 = null, dy = 0;
+  sh.addEventListener('touchstart', (e) => { y0 = sh.scrollTop <= 0 ? e.touches[0].clientY : null; dy = 0; }, { passive: true });
+  sh.addEventListener('touchmove', (e) => { if (y0 == null) return; dy = e.touches[0].clientY - y0; if (dy > 0 && sh.scrollTop <= 0) { sh.style.transition = 'none'; sh.style.transform = `translate(-50%, ${dy}px)`; } else if (dy < 0) y0 = null; }, { passive: true });
+  sh.addEventListener('touchend', () => { if (y0 == null && !sh.style.transform) return; sh.style.transition = ''; sh.style.transform = ''; if (dy > 80) closeSheets(); y0 = null; dy = 0; }, { passive: true });
+});
 $$('[data-close]').forEach((b) => (b.onclick = closeSheets));
 $('#backBtn').onclick = () => history.back();
 addEventListener('popstate', () => { if ($('#readerView').classList.contains('active')) closeReader(); else if ($('#gutView').classList.contains('active') || $('#gcView').classList.contains('active') || $('#jnView').classList.contains('active')) { closeSheets(); showView('libraryView'); renderLibrary(); } });

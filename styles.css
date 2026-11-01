@@ -118,6 +118,9 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .sheet.show{transform:translate(-50%,0)}
 @media (min-width:700px){.sheet{bottom:50%;border-radius:24px;border-bottom:1px solid var(--line);transform:translate(-50%,60%) scale(.98);opacity:0;pointer-events:none;transition:transform .35s var(--ease),opacity .25s}.sheet.show{transform:translate(-50%,50%);opacity:1;pointer-events:auto}}
 .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+#settingsSheet{max-height:min(88vh,calc(100dvh - var(--sat) - 12px))}
+.sheet-x{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;min-height:44px;margin:0 -10px -44px auto;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--bg2);color:var(--fg,inherit);cursor:pointer;touch-action:manipulation}
+.sheet-x svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
 .sheet h3{margin:6px 0 16px;font-size:20px;font-weight:600}
 .field{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:16px;outline:none;transition:border-color .2s}
 .field:focus{border-color:var(--accent)}
