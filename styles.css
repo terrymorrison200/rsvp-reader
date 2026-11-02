@@ -80,7 +80,7 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .context{position:absolute;left:50%;top:6%;width:min(680px,90%);transform:translate(-50%,8px);font-family:Literata,Georgia,serif;font-size:17px;line-height:1.65;color:var(--mute);opacity:0;pointer-events:none;transition:opacity .35s var(--ease),transform .35s var(--ease);max-height:34%;overflow:hidden;-webkit-mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(transparent,#000 18%,#000 82%,transparent);padding:14px 0}
 .context.show{opacity:1;transform:translate(-50%,0)}
 .context .cur-sent{color:var(--fg)}
-.context .cur-word{color:var(--focus);font-weight:600}
+.context .cur-word{color:var(--focus);font-weight:inherit;background-color:color-mix(in srgb,var(--focus) 16%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--focus) 16%,transparent);border-radius:3px}
 .context .w{cursor:pointer;border-radius:4px}
 .context.show{pointer-events:auto}
 .context .w:hover{background:var(--card)}
@@ -312,4 +312,4 @@ kbd{background:var(--card);border:1px solid var(--line);border-radius:6px;paddin
 #modeBtn[aria-pressed=true]{color:var(--accent-fg)}
 .page-mode #readerView .controls{position:absolute;left:0;right:0;bottom:0;z-index:5;background:linear-gradient(transparent,var(--bg) 18px);padding-top:18px}
 .page-mode #readerView .stage{padding-bottom:0}
-.page-mode #readerView .context .cur-word{color:var(--focus);font-weight:600}
+.page-mode #readerView .context .cur-word{color:var(--focus);font-weight:inherit;background-color:color-mix(in srgb,var(--focus) 16%,transparent);box-shadow:0 0 0 2px color-mix(in srgb,var(--focus) 16%,transparent);border-radius:3px}
