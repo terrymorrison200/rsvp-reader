@@ -840,7 +840,7 @@ function play() {
   if (R.playing || !R.words.length) return;
   if (R.i >= R.words.length - 1) R.i = 0;
   R.playing = true; R.rampN = 0; R.sessionStart = performance.now(); R.sessionWords = 0; R.sessionAt = new Date().toISOString();
-  document.body.classList.add('playing'); $('#readerView').classList.add('reading'); showContext();
+  document.body.classList.add('playing'); $('#readerView').classList.add('reading'); showContext(); msState();
   if (R.narr && isEleven()) { elUnlock(); EL.t0 = performance.now(); } // must run synchronously inside the tap for iOS
   if (R.audio) audioPlay(); else if (R.narr) speakFrom(R.i); else tick();
   wakeLock(true);
@@ -852,7 +852,7 @@ function pause() {
   if (R.audio) { AU.pause(); cancelAnimationFrame(auRaf); }
   document.body.classList.remove('playing'); $('#readerView').classList.remove('reading');
   addTime(performance.now() - R.sessionStart); histSession(performance.now() - R.sessionStart);
-  savePos(true); showContext(); wakeLock(false);
+  savePos(true); showContext(); wakeLock(false); msState();
   $('#tapHint').textContent = 'Tap to resume';
 }
 const toggle = () => (R.playing ? pause() : play());
@@ -1248,7 +1248,7 @@ async function elFrom(i, level = 0) {
   const next = chunkFrom(rec.w1, level + 1);
   EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos();
     const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
-    const gap = chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
+    const gap = document.hidden ? 0 : chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
   try { await EA.play(); } catch (e) { elHint(false); console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
   elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0;
   // read-ahead: next chunk starts fetching as soon as this one plays (at most one request in flight); its audio is analysed as soon as it lands
@@ -1458,7 +1458,36 @@ addEventListener('keydown', (e) => {
   else if (k === 's' || k === 'S') saveHighlight();
   else if (k === 'n' || k === 'N') setNarr(!R.narr);
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { pause(); savePos(true); } });
+// Background / lock screen: audio-element narration (ElevenLabs/Google relay voices, talk audio) keeps playing; the device voice
+// (speechSynthesis) and silent RSVP are suspended by iOS, so those pause. On return the highlight resyncs from the audio clock.
+const bgAudio = () => R.playing && (R.audio || (R.narr && isEleven()));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (bgAudio()) { savePos(true); return; } const dev = R.playing && R.narr; pause(); savePos(true); if (dev) R.devVoiceBg = true; return; }
+  if (R.devVoiceBg) { R.devVoiceBg = false; toast('The device voice stops when the phone locks — pick an ElevenLabs/Google voice in Settings to keep listening'); }
+  audioResync();
+});
+// keep position + lock-screen state current while hidden (rAF doesn't run in the background; timeupdate does)
+function audioResync() {
+  if (!R.playing) return;
+  if (R.audio && R.align) { const k = idxAt(AU.currentTime * 1000); if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } }
+  else if (R.narr && isEleven() && EL.cur && EL.cur.t) { const rec = EL.cur, t = rec.t, ms = EA.currentTime; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= rec.w0 && k < rec.w1) { if (k > R.i) countWords(k - R.i); R.i = k; if (!document.hidden) render(); savePos(); } }
+}
+EA.addEventListener('timeupdate', () => { if (document.hidden) audioResync(); msPos(EA); });
+AU.addEventListener('timeupdate', () => { if (document.hidden) audioResync(); msPos(AU); });
+
+/* Media Session: lock-screen / Control Center metadata and play, pause, next/previous sentence */
+const MS = 'mediaSession' in navigator ? navigator.mediaSession : null;
+function msMeta() {
+  if (!MS || !R.meta) return;
+  try { MS.metadata = new MediaMetadata({ title: R.meta.title || 'Swift Read', artist: R.meta.author || 'Swift Read', album: 'Swift Read', artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }, { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] }); } catch (e) {}
+}
+function msState() { if (!MS) return; try { MS.playbackState = R.playing ? 'playing' : 'paused'; } catch (e) {} if (R.playing) msMeta(); }
+function msPos(a) { if (!MS || !MS.setPositionState || !R.playing || !Number.isFinite(a.duration) || !(a.duration > 0)) return; if (a === AU ? !R.audio : !(R.narr && isEleven())) return; try { MS.setPositionState({ duration: a.duration, position: Math.min(a.currentTime, a.duration), playbackRate: a.playbackRate || 1 }); } catch (e) {} }
+if (MS) {
+  const h = (a, f) => { try { MS.setActionHandler(a, f); } catch (e) {} };
+  h('play', () => play()); h('pause', () => pause()); h('stop', () => pause());
+  h('nexttrack', () => nextSentence()); h('previoustrack', () => prevSentence());
+}
 addEventListener('resize', () => { applySettings(); });
 
 /* ---------------- Boot ---------------- */
