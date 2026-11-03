@@ -1,4 +1,4 @@
-const APP_VER = 'v28';
+const APP_VER = 'v36';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader
@@ -1220,42 +1220,59 @@ async function elGet(range, prefetch = false) {
   return r;
 }
 const elRate = () => { if (EL.natural) return 1; const c = EL.cur; const base = c && c.end ? ((c.w1 - c.w0) / c.end) * 60 : 160; return Math.max(0.5, Math.min(MAX_RATE, S.wpm / base)); };
-function elStop() { EL.gen++; elHint(false); cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
+function elStop() { EL.gen++; EL.sess = (EL.sess || 0) + 1; EL.ready.clear(); EA._keep = false; EA.loop = false; EL.resume = false; elHint(false); cancelAnimationFrame(EL.raf); EA.pause(); EL.ctls.forEach((c) => c.abort()); EL.ctls.clear(); EL.pending.clear(); }
 // Out of credits: say so once, then carry on with the device voice.
 function elQuota(msg, i) { EL.off = true; toast(msg + ' — switching to the device voice'); loadVoices(); if (R.playing && R.narr) speakFrom(i); }
 function elHint(on) { const h = $('#tapHint'); if (on) { h.textContent = 'Starting…'; h.classList.add('busy'); } else h.classList.remove('busy'); }
+// Lock-screen safe playback (v36): ONE persistent <audio> (EA). At every handoff the next chunk is normally already fetched, decoded and
+// analysed (read-ahead of up to 3 chunks), so the 'ended' handler swaps src and calls play() synchronously — no network wait, no timers,
+// no Web Audio on the critical path (iOS suspends timers and may stall OfflineAudioContext while locked, and refuses to start an element
+// that has gone idle). If the next chunk is NOT ready while hidden, EA loops a silent WAV so the audio session stays alive until it lands.
+EL.ready = new Map(); // w0 -> { level, p: Promise<rec>, rec }
+const AHEAD = 3;
+function elKeepAlive(gen) { if (EA._keep) return; EA._keep = true; try { if (EA._url) { URL.revokeObjectURL(EA._url); EA._url = null; } EA.loop = true; EA.playbackRate = 1; EA.src = SILENT_WAV; const p = EA.play(); if (p) p.catch((e) => console.warn('keepalive', e)); } catch (e) {} }
+function elKeepOff() { if (!EA._keep) return; EA._keep = false; EA.loop = false; }
+// prefetch: fetch (one request at a time) and analyse the next AHEAD chunks after `rec`, sequentially
+function elReadAhead(gen, from, level) {
+  const ss = EL.sess; let w = from, lv = level, chain = Promise.resolve();
+  for (let n = 0; n < AHEAD; n++) {
+    const range = chunkFrom(w, lv); if (!range) break; const w0 = range[0], myLv = lv;
+    if (!EL.ready.has(w0)) { const ent = { level: myLv, rec: null }; ent.p = chain.then(() => ss === EL.sess ? elGet(range) : null).then(async (r) => { if (!r) return null; if (r.est) { const a = await elAnalyze(r); r._an = a; } ent.rec = r; return r; }); ent.p.catch((e) => { console.warn('prefetch', e && e.message); EL.ready.delete(w0); }); EL.ready.set(w0, ent); }
+    chain = EL.ready.get(w0).p.catch(() => null); w = range[1]; lv = lv + 1;
+  }
+}
 async function elFrom(i, level = 0) {
   const gen = ++EL.gen; const range = chunkFrom(i, level); if (!range) return;
-  elHint(true);
-  let rec; try { rec = await elGet(range); } catch (e) { elHint(false); if (gen !== EL.gen || e.name === 'AbortError') return; if (e.code === 'hd_cap' && /Chirp3/.test(curV())) { EL.vo = 'gtts:en-US-Neural2-J'; toast('Google HD limit reached — using Neural2 J'); return elFrom(i); } if (e.quota) return elQuota(e.message, i); toast('Voice: ' + String(e.message || e).slice(0, 80)); pause(); return; }
+  const ent = EL.ready.get(range[0]); if (ent && ent.rec && ent.rec.w1 === range[1] && range[0] === i) return elStart(ent.rec, i, level, gen);
+  if (document.hidden && R.playing) elKeepAlive(gen); else elHint(true);
+  let rec; try { rec = ent ? (await ent.p) || (await elGet(range)) : await elGet(range); } catch (e) { elHint(false); elKeepOff(); if (gen !== EL.gen || e.name === 'AbortError') return; if (e.code === 'hd_cap' && /Chirp3/.test(curV())) { EL.vo = 'gtts:en-US-Neural2-J'; EL.ready.clear(); toast('Google HD limit reached — using Neural2 J'); return elFrom(i); } if (e.quota) return elQuota(e.message, i); toast('Voice: ' + String(e.message || e).slice(0, 80)); pause(); return; }
   if (gen !== EL.gen || !R.playing) return;
-  EL.cur = rec; if (EA._url) URL.revokeObjectURL(EA._url); EA._url = EA.src = URL.createObjectURL(rec.audio);
+  // visible: wait briefly for audio analysis (estimated voices) so the first words highlight right; hidden: never wait (timers are frozen)
+  if (rec.est && !rec._an && !document.hidden) { const p = elAnalyze(rec); rec._an = await Promise.race([p, new Promise((r) => setTimeout(r, 300, null))]); if (!rec._an) p.then((v) => { rec._an = v; if (v && EL.cur === rec) elApply(rec, v); }); if (gen !== EL.gen || !R.playing) return; }
+  elStart(rec, i, level, gen);
+}
+function elApply(rec, res) { const mdur = Number.isFinite(EA.duration) && EA.duration > 0 && EL.cur === rec ? EA.duration : 0; if (rec.est) { const dd = res ? res.dur : (mdur || rec.wend); const f = res && mdur && Math.abs(mdur - dd) / dd > 0.01 ? mdur / dd : 1; elRetime(rec, res ? res.an : null, dd, f); } else elRetime(rec, null, mdur); }
+// synchronous start: src swap + play() in the same task (inside 'ended' when handing off)
+function elStart(rec, i, level, gen) {
+  EL.ready.delete(rec.w0); for (const k of EL.ready.keys()) if (k < rec.w0) EL.ready.delete(k);
+  elKeepOff(); EL.cur = rec; const old = EA._url; EA._url = EA.src = URL.createObjectURL(rec.audio); if (old) URL.revokeObjectURL(old);
   EA.preservesPitch = true; EA.webkitPreservesPitch = true; EA.playbackRate = EA.defaultPlaybackRate = elRate();
-  try { await new Promise((r, j) => { if (EA.readyState >= 1) return r(); EA.addEventListener('loadedmetadata', r, { once: true }); EA.addEventListener('error', () => j(new Error('audio')), { once: true }); }); }
-  catch (e) { elHint(false); if (gen === EL.gen) { toast('Couldn’t load the audio.'); pause(); } return; }
-  if (gen !== EL.gen || !R.playing) return;
-  // Timings follow the chunk's REAL audio: estimated voices are re-laid-out over the speech found in the decoded audio (leading/trailing
-  // silence and every pause matched to the text), then mapped onto the element's own timeline (exact voices keep the provider's times).
-  const mdur = Number.isFinite(EA.duration) && EA.duration > 0 ? EA.duration : 0;
-  const apply = (res) => { if (gen !== EL.gen) return; const dd = res ? res.dur : (mdur || rec.wend); const f = res && mdur && Math.abs(mdur - dd) / dd > 0.01 ? mdur / dd : 1; elRetime(rec, res ? res.an : null, dd, f); };
-  if (rec.est) {
-    let res = rec.an && rec.adur ? { an: rec.an, dur: rec.adur } : null;
-    if (!res) { const p = elAnalyze(rec); res = await Promise.race([p, new Promise((r) => setTimeout(r, 300, null))]); if (!res) p.then((v) => v && apply(v)); } // late result is applied while playing
-    if (gen !== EL.gen || !R.playing) return;
-    apply(res || null);
-  } else elRetime(rec, null, mdur);
-  EA.currentTime = i > rec.w0 ? rec.t[i - rec.w0] || 0 : 0; EA.playbackRate = elRate();
-  const next = chunkFrom(rec.w1, level + 1);
-  EA.onended = () => { if (gen !== EL.gen || !R.playing) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; render(); savePos();
+  elApply(rec, rec._an || (rec.an && rec.adur ? { an: rec.an, dur: rec.adur } : null));
+  const off = i > rec.w0 ? rec.t[i - rec.w0] || 0 : 0;
+  const onMeta = () => { if (gen !== EL.gen) return; elApply(rec, rec._an || (rec.an && rec.adur ? { an: rec.an, dur: rec.adur } : null)); if (off && Math.abs(EA.currentTime - off) > 0.05) EA.currentTime = rec.t[i - rec.w0] || off; msPos(EA); };
+  if (off) { try { EA.currentTime = off; } catch (e) {} }
+  EA.addEventListener('loadedmetadata', onMeta, { once: true });
+  EA.onerror = () => { if (gen === EL.gen && R.playing && !EA._keep) { toast('Couldn’t load the audio.'); pause(); } };
+  EA.onended = () => { if (gen !== EL.gen || !R.playing || EA._keep) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; if (!document.hidden) render(); savePos();
     const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
     const gap = document.hidden ? 0 : chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
-  try { await EA.play(); } catch (e) { elHint(false); console.warn(e); toast('Couldn’t start the audio.'); pause(); return; }
-  elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0;
-  // read-ahead: next chunk starts fetching as soon as this one plays (at most one request in flight); its audio is analysed as soon as it lands
-  if (next) elGet(next, true).then((r) => r && r.est && elAnalyze(r)).catch((e) => console.warn('prefetch', e.message));
-  // The highlight is a pure function of the audio clock: the last word whose start time <= EA.currentTime. No counters, no accumulated
-  // state, so it re-anchors itself every frame (and at every chunk start via the new rec.t) and may also correct backwards.
-  const loop = () => { if (gen !== EL.gen) return; if (!EA.seeking) { const ms = EA.currentTime, t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } } EL.raf = requestAnimationFrame(loop); };
+  const p = EA.play();
+  if (p) p.then(() => { if (gen !== EL.gen) return; elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0; msState(); })
+    .catch((e) => { console.warn(e); if (gen !== EL.gen) return; elHint(false); if (document.hidden) { EL.resume = true; return; } toast('Couldn’t start the audio.'); pause(); });
+  elReadAhead(gen, rec.w1, level + 1);
+  // The highlight is a pure function of the audio clock (rAF while visible; timeupdate drives it while hidden)
+  cancelAnimationFrame(EL.raf);
+  const loop = () => { if (gen !== EL.gen) return; if (!EA.seeking && !EA._keep && EL.cur === rec) { const ms = EA.currentTime, t = rec.t; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } } EL.raf = requestAnimationFrame(loop); };
   loop();
 }
 
@@ -1464,13 +1481,14 @@ const bgAudio = () => R.playing && (R.audio || (R.narr && isEleven()));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (bgAudio()) { savePos(true); return; } const dev = R.playing && R.narr; pause(); savePos(true); if (dev) R.devVoiceBg = true; return; }
   if (R.devVoiceBg) { R.devVoiceBg = false; toast('The device voice stops when the phone locks — pick an ElevenLabs/Google voice in Settings to keep listening'); }
+  if (EL.resume && R.playing && R.narr && isEleven()) { EL.resume = false; EA.play().catch(() => pause()); }
   audioResync();
 });
 // keep position + lock-screen state current while hidden (rAF doesn't run in the background; timeupdate does)
 function audioResync() {
   if (!R.playing) return;
   if (R.audio && R.align) { const k = idxAt(AU.currentTime * 1000); if (k !== R.i) { if (k > R.i) countWords(k - R.i); R.i = k; render(); savePos(); } }
-  else if (R.narr && isEleven() && EL.cur && EL.cur.t) { const rec = EL.cur, t = rec.t, ms = EA.currentTime; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= rec.w0 && k < rec.w1) { if (k > R.i) countWords(k - R.i); R.i = k; if (!document.hidden) render(); savePos(); } }
+  else if (R.narr && isEleven() && EL.cur && EL.cur.t && !EA._keep) { const rec = EL.cur, t = rec.t, ms = EA.currentTime; let lo = 0, hi = t.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (t[m] <= ms) lo = m; else hi = m - 1; } const k = rec.w0 + lo; if (k !== R.i && k >= rec.w0 && k < rec.w1) { if (k > R.i) countWords(k - R.i); R.i = k; if (!document.hidden) render(); savePos(); } }
 }
 EA.addEventListener('timeupdate', () => { if (document.hidden) audioResync(); msPos(EA); });
 AU.addEventListener('timeupdate', () => { if (document.hidden) audioResync(); msPos(AU); });
