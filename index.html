@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css?v=36">
+<link rel="stylesheet" href="styles.css?v=37">
 </head>
 <body data-theme="dark">
 <div id="app">
@@ -192,6 +192,7 @@
     <label class="toggle"><input type="checkbox" id="smartIn"><span></span>Smart pauses</label>
     <label class="toggle"><input type="checkbox" id="pageModeIn"><span></span>Page view (no word box)</label>
   </div>
+  <div class="set-group"><label for="paraGapSel">Pause between paragraphs</label><select id="paraGapSel" class="field"><option value="0">Off</option><option value="500">Short (~0.5 s)</option><option value="1000">Medium (~1 s)</option><option value="1500">Long (~1.5 s)</option></select></div>
   <div class="set-group"><label>Narration voice</label><select id="voiceSel" class="field"></select>
     <div class="sync-row"><span id="elStatus" class="small-mute"></span><button class="btn sm" id="voicePreview" type="button">▶ Preview</button></div>
     <p class="small-mute">Locked screen / other apps: ElevenLabs and Google voices (via the relay) keep playing with lock-screen controls; the device voice stops when the phone locks (iOS limit).</p>
@@ -227,6 +228,6 @@
 
 <div id="updBar" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 14px;border-radius:12px;background:#222;color:#fff;display:none;align-items:center;justify-content:space-between">Update available <button class="btn sm" id="updBtn">Reload</button></div>
 <script src="vendor/jszip.min.js"></script>
-<script type="module" src="app.js?v=36"></script>
+<script type="module" src="app.js?v=37"></script>
 </body>
 </html>

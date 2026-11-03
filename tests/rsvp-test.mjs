@@ -109,7 +109,7 @@ for (const [name, vp] of [['portrait 390x844', { width: 390, height: 844 }], ['l
   ok(near(T.nine, 1.45) && T.twelve > T.nine && near(T.long30, 1 + 0.9), `long words slower, capped (9:${T.nine.toFixed(2)} 12:${T.twelve.toFixed(2)} 30:${T.long30.toFixed(2)})`);
   ok(near(T.comma, 1.3) && near(T.semi, 1.3), `comma/semicolon x1.3 (${T.comma}, ${T.semi})`);
   ok(near(T.period, 1.75) && near(T.bang, 1.75) && near(T.q, 1.75), `. ! ? (incl. closing quote) x1.75 (${T.period}, ${T.bang}, ${T.q})`);
-  ok(near(T.para, 2.3) && near(T.paraMs, 2.3 * 200), `paragraph end x2.3 and ms = 200*2.3 at 300 wpm (${T.para}, ${T.paraMs})`);
+  ok(near(T.para, 2.3) && near(T.paraMs, 2.3 * 200 + 500), `paragraph end x2.3 and ms = 200*2.3 + 500 (v37 default Short pause) at 300 wpm (${T.para}, ${T.paraMs})`);
   ok(near(T.quote, 1) && near(T.num, 1.2) && T.hy > 1.2 && T.caps > 1.5, `quote-only x1, number +0.2 (${T.num}), hyphenated (${T.hy.toFixed(2)}), ALL CAPS long (${T.caps.toFixed(2)})`);
   // v28: hyphen chains are paced at least as long as their parts flashed separately; ordinary words unchanged
   const H = await p.evaluate(() => { const tk = __sr.tokenize; const m = (s, i = 0) => __sr.wordMult(tk(s)[i]); __sr.S.smart = true; __sr.S.ramp = false; __sr.R.rampN = 99;

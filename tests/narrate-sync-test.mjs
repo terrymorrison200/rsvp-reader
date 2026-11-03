@@ -30,7 +30,7 @@ async function openApp(srv, extra = {}, { fakeSpeech = false } = {}) {
 // in-page recorder: one row per animation frame
 const RECORDER = () => { window.__rec = { frames: [], chunks: [] }; window.__refs = []; let last = null;
   const f = () => { const c = window.__sr.EL.cur; if (c && c !== last) { last = c; window.__refs.push(c); window.__rec.chunks.push({ w0: c.w0, w1: c.w1, map: c.map || null, key: c.sp ? c.sp.map((x) => x.t).join(' ') : null, t0: performance.now() }); }
-    const EA = window.__sr.EA; window.__rec.frames.push([window.__rec.chunks.length - 1, EA.currentTime, window.__sr.R.i, EA.paused || EA.seeking ? 1 : 0, performance.now(), EA.playbackRate]); requestAnimationFrame(f); }; requestAnimationFrame(f); };
+    const EA = window.__sr.EA; window.__rec.frames.push([window.__rec.chunks.length - 1, EA.currentTime, window.__sr.R.i, EA.paused || EA.seeking || EA._keep ? 1 : 0, performance.now(), EA.playbackRate]); requestAnimationFrame(f); }; requestAnimationFrame(f); };
 async function startNarration(p) { await p.evaluate(RECORDER); await p.click('#narrateBtn'); await p.waitForTimeout(100); await p.click('#stage'); }
 
 // expected highlighted displayed-word for chunk `ch` at media time ct
@@ -73,7 +73,7 @@ const fakeSpeechJs = () => { // minimal speechSynthesis: speaks at a per-sentenc
 };
 
 (async () => {
-  const only = process.env.ONLY || 'ABCD'; const onlyA = false; const srv = await startServer(ROOT); console.log('app root', ROOT, '| doc words', DOC.split(/\s+/).length);
+  const only = process.env.ONLY || 'ABCDE'; const onlyA = false; const srv = await startServer(ROOT); console.log('app root', ROOT, '| doc words', DOC.split(/\s+/).length);
   // ---- A. Google Chirp 3 HD (estimated word timings), 13 consecutive paragraphs, mixed chunk sizes ----
   console.log('A. Chirp 3 HD narration, 13 paragraphs');
   if (only.includes('A')) { const { b, p, errs } = await openApp(srv); await startNarration(p); await p.waitForTimeout(+process.env.A_MS || 105000);
@@ -103,6 +103,12 @@ const fakeSpeechJs = () => { // minimal speechSynthesis: speaks at a per-sentenc
   console.log('C. Neural2 (exact timings)');
   if (only.includes('C')) { const { b, p, errs } = await openApp(srv, { voice: 'gtts:en-US-Neural2-J' }); await startNarration(p); await p.waitForTimeout(40000);
     const r = await analyse(p, srv, 'Neural2'); ok(r.rows > 50 && r.frac <= 0.01 && r.maxAbs <= 2, `exact voice within ${TOL} word (max ${r.maxAbs})`); ok(errs.length === 0, 'no page errors'); await b.close(); }
+  // ---- E. ElevenLabs (exact timings, /tts path) + v37 paragraph pause (Medium 1 s) as silence on the same element ----
+  console.log('E. ElevenLabs + paragraph pause');
+  if (only.includes('E')) { const { b, p, errs } = await openApp(srv, { voice: 'eleven:EXAVITQu4vr4xnSDxMaL', paraGap: 1000 }); await p.evaluate(() => { window.__gaps = []; const EA = window.__sr.EA; let t = 0; EA.addEventListener('play', () => { if (EA._keep) t = performance.now(); }); EA.addEventListener('ended', () => { if (EA._keep && t) { window.__gaps.push(Math.round(performance.now() - t)); t = 0; } }); });
+    await startNarration(p); await p.waitForTimeout(40000);
+    const r = await analyse(p, srv, 'ElevenLabs'); ok(r.rows > 50 && r.frac <= 0.01 && r.maxAbs <= 2, `ElevenLabs within ${TOL} word (max ${r.maxAbs})`);
+    const g = await p.evaluate(() => window.__gaps); ok(g.length >= 1 && g.every((x) => x > 850 && x < 1400), `paragraph pauses played as silence: ${JSON.stringify(g)} ms (want ~1000)`); ok(errs.length === 0, 'no page errors ' + errs.join('|')); await b.close(); }
   // ---- D. device voice with word-boundary events, and without ----
   if (only.includes('D')) for (const boundaries of [true, false]) {
     console.log('D. device voice, boundary events ' + (boundaries ? 'on' : 'off (estimator only)'));

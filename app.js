@@ -1,4 +1,4 @@
-const APP_VER = 'v36';
+const APP_VER = 'v37';
 import './narrsync.js'; // narration timing helpers (window.NS)
 const NS = window.NS;
 // Swift Read — local-first RSVP reader
@@ -34,7 +34,7 @@ const idb = {
 };
 
 /* ---------------- Settings ---------------- */
-const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '', mode: 'rsvp' };
+const DEF = { syncUrl: '', syncKey: '', theme: 'dark', font: 'inter', size: 56, chunk: 1, color: '#ff4d4d', guides: true, ramp: true, smart: true, wpm: 300, voice: '', rate: 1, relayUrl: '', relayToken: '', mode: 'rsvp', paraGap: 500 };
 const SETTINGS_VER = 27; // bump to force one-time migrations of saved settings
 const S = Object.assign({}, DEF, JSON.parse(localStorage.getItem('sr.settings') || '{}'));
 if ((S.sv || 0) < SETTINGS_VER) { S.guides = true; S.sv = SETTINGS_VER; try { localStorage.setItem('sr.settings', JSON.stringify(S)); } catch (e) {} } // v27: guide marks back ON once for everyone (an older/accidental 'off' left existing users with no guides)
@@ -54,7 +54,7 @@ function applySettings() {
   segOn('themeSeg', S.theme); segOn('fontSeg', S.font); segOn('chunkSeg', S.chunk);
   $$('#colorRow button').forEach((b) => b.classList.toggle('on', b.dataset.v === S.color));
   $('#colorIn').value = S.color; $('#sizeIn').value = S.size; $('#sizeVal').textContent = S.size + 'px';
-  $('#guidesIn').checked = S.guides; $('#rampIn').checked = S.ramp; $('#smartIn').checked = S.smart;
+  $('#guidesIn').checked = S.guides; $('#rampIn').checked = S.ramp; $('#smartIn').checked = S.smart; $('#paraGapSel').value = String(S.paraGap);
   $('#rateIn').value = S.rate; $('#rateVal').textContent = S.rate.toFixed(1) + '×';
   setWpm(S.wpm, false);
   if (R.words.length) render();
@@ -815,10 +815,13 @@ function partMult(t, end) {
   else if (/[,;:—–-]$/.test(tail)) p = T_COMMA;
   return m + (p - 1);
 }
+// v37 adjustable paragraph pause (ms): Off 0 / Short 500 / Medium 1000 / Long 1500
+const paraGap = () => Math.max(0, Math.min(3000, +S.paraGap || 0));
 function delayFor(chunk) {
   let ms = (60000 / S.wpm) * chunk.length;
   if (S.smart) ms = (60000 / S.wpm) * chunk.reduce((a, c) => a + wordMult(c), 0);
   if (S.ramp && R.rampN < 12) { ms *= 1 + (12 - R.rampN) * 0.06; R.rampN++; }
+  if (paraGap() && chunk.length && chunk[chunk.length - 1].end === 3) ms += paraGap(); // v37: hold at paragraph end
   return ms;
 }
 // cumulative multiplier table (built once per document) so time-left estimates match the real pacing
@@ -1010,7 +1013,9 @@ function speakFrom(i) {
     clearInterval(est); if (gen !== R.utterGen || !R.playing) return;
     if (tStart && cum) { const sample = ((performance.now() - tStart) / 1000 / cum) * (S.rate || 1); if (sample > 0.015 && sample < 0.25) R.devPace = R.devPace ? R.devPace * 0.5 + sample * 0.5 : sample; }
     countWords(end - R.i); if (finish()) return;
-    R.i = end; render(); savePos(); speakFrom(end);
+    R.i = end; render(); savePos();
+    const g = end < R.words.length && R.words[end - 1].p !== R.words[end].p ? paraGap() : 0;
+    if (g) setTimeout(() => { if (gen === R.utterGen && R.playing) speakFrom(end); }, g); else speakFrom(end);
   };
   u.onerror = (e) => { clearInterval(est); if (gen === R.utterGen && e.error !== 'interrupted' && e.error !== 'canceled') { toast('Narration error: ' + e.error); } };
   speechSynthesis.speak(u);
@@ -1080,7 +1085,7 @@ const isHD = () => /Chirp3/.test(curV());
 // Chunks: 1–2 sentences (~350 chars) normally; for Google HD whole paragraphs up to ~1,500 chars (natural prosody),
 // splitting an over-long paragraph at sentence ends. Only one chunk is fetched at a time (read-ahead at 60%).
 function elChunks(words = R.words, target = 350, max = 550) {
-  const hd = isHD() && words === R.words; const mode = hd ? 'hd' : 'n';
+  const hd = isHD() && words === R.words; const pg = !!paraGap() && words === R.words; const mode = (hd ? 'hd' : 'n') + (pg ? 'p' : '');
   if (R.elChunksFor === words && R.elChunks && R.elChunksMode === mode) return R.elChunks;
   const out = []; let w0 = 0, len = 0;
   for (let k = 0; k < words.length; k++) {
@@ -1089,6 +1094,7 @@ function elChunks(words = R.words, target = 350, max = 550) {
     let cut;
     if (hd) { let nextPara = 0; if (paraEnd && !last) { for (let j = k + 1; j < words.length && words[j].p === words[k + 1].p; j++) nextPara += words[j].t.length + 1; } cut = last || (paraEnd && len + nextPara > 1500) || (sentEnd && len >= 1300) || len >= 1600; }
     else cut = (sentEnd && len >= target) || len >= max - 60 || last;
+    if (pg && paraEnd) cut = true;
     if (cut) { out.push([w0, k + 1]); w0 = k + 1; len = 0; }
   }
   if (words === R.words) { R.elChunksFor = words; R.elChunks = out; R.elChunksMode = mode; }
@@ -1161,6 +1167,7 @@ function chunkFrom(i, level = 0) {
     if (len > lim && cut >= 0) break;
     const sentEnd = last || W[k + 1].s !== W[k].s, paraEnd = last || W[k + 1].p !== W[k].p;
     if (sentEnd) cut = k + 1;
+    if (paraEnd && paraGap()) break; // v37: one paragraph per chunk max, so the pause is real silence between chunks
     if (level >= 3 && paraEnd && cut === k + 1) { let nx = 0; for (let j = k + 1; j < W.length && W[j].p === W[k + 1].p; j++) nx += W[j].t.length + 1; if (len + nx > lim) break; }
     if (len > lim && cut < 0 && len > lim * 1.3) { cut = k + 1; for (let j = k; j > w0 + 3; j--) if (W[j].end === 1) { cut = j + 1; break; } break; } // very long first sentence: cut at a comma
     if (last) break; k++;
@@ -1231,6 +1238,18 @@ function elHint(on) { const h = $('#tapHint'); if (on) { h.textContent = 'Starti
 EL.ready = new Map(); // w0 -> { level, p: Promise<rec>, rec }
 const AHEAD = 3;
 function elKeepAlive(gen) { if (EA._keep) return; EA._keep = true; try { if (EA._url) { URL.revokeObjectURL(EA._url); EA._url = null; } EA.loop = true; EA.playbackRate = 1; EA.src = SILENT_WAV; const p = EA.play(); if (p) p.catch((e) => console.warn('keepalive', e)); } catch (e) {} }
+// v37 paragraph pause: play a silent WAV of exactly `ms` on the SAME element (src swap + play() inside 'ended', no timers), then hand off
+// to the next chunk from the silence's own 'ended'. Works locked; the highlight holds on the paragraph's last word meanwhile.
+const SIL = new Map();
+function silentWav(ms) { if (SIL.has(ms)) return SIL.get(ms); const n = Math.round(8 * ms), b = new Uint8Array(44 + n), d = new DataView(b.buffer); const w = (o, t) => [...t].forEach((c, k) => (b[o + k] = c.charCodeAt(0)));
+  w(0, 'RIFF'); d.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, 8000, true); d.setUint32(28, 8000, true); d.setUint16(32, 1, true); d.setUint16(34, 8, true); w(36, 'data'); d.setUint32(40, n, true); b.fill(128, 44);
+  const u = URL.createObjectURL(new Blob([b], { type: 'audio/wav' })); SIL.set(ms, u); return u; }
+function elGap(ms, gen, next) {
+  if (EA._url) { URL.revokeObjectURL(EA._url); EA._url = null; }
+  EA._keep = true; EA.loop = false; EA.playbackRate = EA.defaultPlaybackRate = 1; EA.src = silentWav(ms);
+  EA.onended = () => { if (gen !== EL.gen || !R.playing) return; EA._keep = false; next(); };
+  const p = EA.play(); if (p) p.catch((e) => { console.warn('gap', e); if (gen === EL.gen && R.playing) { EA._keep = false; next(); } });
+}
 function elKeepOff() { if (!EA._keep) return; EA._keep = false; EA.loop = false; }
 // prefetch: fetch (one request at a time) and analyse the next AHEAD chunks after `rec`, sequentially
 function elReadAhead(gen, from, level) {
@@ -1251,7 +1270,7 @@ async function elFrom(i, level = 0) {
   if (rec.est && !rec._an && !document.hidden) { const p = elAnalyze(rec); rec._an = await Promise.race([p, new Promise((r) => setTimeout(r, 300, null))]); if (!rec._an) p.then((v) => { rec._an = v; if (v && EL.cur === rec) elApply(rec, v); }); if (gen !== EL.gen || !R.playing) return; }
   elStart(rec, i, level, gen);
 }
-function elApply(rec, res) { const mdur = Number.isFinite(EA.duration) && EA.duration > 0 && EL.cur === rec ? EA.duration : 0; if (rec.est) { const dd = res ? res.dur : (mdur || rec.wend); const f = res && mdur && Math.abs(mdur - dd) / dd > 0.01 ? mdur / dd : 1; elRetime(rec, res ? res.an : null, dd, f); } else elRetime(rec, null, mdur); }
+function elApply(rec, res) { if (!rec.k) return; const mdur = Number.isFinite(EA.duration) && EA.duration > 0 && EL.cur === rec ? EA.duration : 0; if (rec.est) { const dd = res ? res.dur : (mdur || rec.wend); const f = res && mdur && Math.abs(mdur - dd) / dd > 0.01 ? mdur / dd : 1; elRetime(rec, res ? res.an : null, dd, f); } else elRetime(rec, null, mdur); }
 // synchronous start: src swap + play() in the same task (inside 'ended' when handing off)
 function elStart(rec, i, level, gen) {
   EL.ready.delete(rec.w0); for (const k of EL.ready.keys()) if (k < rec.w0) EL.ready.delete(k);
@@ -1265,7 +1284,7 @@ function elStart(rec, i, level, gen) {
   EA.onerror = () => { if (gen === EL.gen && R.playing && !EA._keep) { toast('Couldn’t load the audio.'); pause(); } };
   EA.onended = () => { if (gen !== EL.gen || !R.playing || EA._keep) return; countWords(rec.w1 - R.i); if (rec.w1 >= R.words.length) { R.i = R.words.length - 1; render(); pause(); histFinished(); toast('Finished ✨'); return; } R.i = rec.w1; if (!document.hidden) render(); savePos();
     const chap = (R.chapters || []).some((c) => c.word === rec.w1); const para = R.words[rec.w1 - 1].p !== R.words[rec.w1].p;
-    const gap = document.hidden ? 0 : chap ? 1500 : para ? 600 : 0; if (gap) setTimeout(() => { if (gen === EL.gen && R.playing) elFrom(rec.w1, level + 1); }, gap); else elFrom(rec.w1, level + 1); };
+    const gap = !paraGap() ? 0 : chap ? Math.max(1500, paraGap()) : para ? paraGap() : 0; if (gap) elGap(gap, gen, () => elFrom(rec.w1, level + 1)); else elFrom(rec.w1, level + 1); };
   const p = EA.play();
   if (p) p.then(() => { if (gen !== EL.gen) return; elHint(false); EL.t0 && console.log('play->audio ms', Math.round(performance.now() - EL.t0)); EL.t0 = 0; msState(); })
     .catch((e) => { console.warn(e); if (gen !== EL.gen) return; elHint(false); if (document.hidden) { EL.resume = true; return; } toast('Couldn’t start the audio.'); pause(); });
@@ -1436,6 +1455,7 @@ $('#sizeIn').oninput = (e) => { S.size = +e.target.value; saveS(); applySettings
 $('#guidesIn').onchange = (e) => { S.guides = e.target.checked; saveS(); applySettings(); };
 $('#rampIn').onchange = (e) => { S.ramp = e.target.checked; saveS(); };
 $('#smartIn').onchange = (e) => { S.smart = e.target.checked; saveS(); applySettings(); };
+$('#paraGapSel').onchange = (e) => { S.paraGap = +e.target.value || 0; saveS(); };
 const voicePick = (e) => { EL.vo = null; const o = e.target.selectedOptions[0]; if (!e.target.value) return; S.voice = e.target.value; S.voiceName = o ? o.textContent.replace(/^★ /, '').replace(/ — (ElevenLabs|Google)$/, '') : ''; S.voicePicked = true; EL.off = false; saveS(); if (R.playing && R.narr) { pause(); } else elStop(); };
 $('#voiceSel').onchange = voicePick; $('#voiceSel').oninput = voicePick;
 $('#voicePreview').onclick = async () => {
@@ -1500,7 +1520,7 @@ function msMeta() {
   try { MS.metadata = new MediaMetadata({ title: R.meta.title || 'Swift Read', artist: R.meta.author || 'Swift Read', album: 'Swift Read', artwork: [{ src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' }, { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }] }); } catch (e) {}
 }
 function msState() { if (!MS) return; try { MS.playbackState = R.playing ? 'playing' : 'paused'; } catch (e) {} if (R.playing) msMeta(); }
-function msPos(a) { if (!MS || !MS.setPositionState || !R.playing || !Number.isFinite(a.duration) || !(a.duration > 0)) return; if (a === AU ? !R.audio : !(R.narr && isEleven())) return; try { MS.setPositionState({ duration: a.duration, position: Math.min(a.currentTime, a.duration), playbackRate: a.playbackRate || 1 }); } catch (e) {} }
+function msPos(a) { if (!MS || !MS.setPositionState || !R.playing || a._keep || !Number.isFinite(a.duration) || !(a.duration > 0)) return; if (a === AU ? !R.audio : !(R.narr && isEleven())) return; try { MS.setPositionState({ duration: a.duration, position: Math.min(a.currentTime, a.duration), playbackRate: a.playbackRate || 1 }); } catch (e) {} }
 if (MS) {
   const h = (a, f) => { try { MS.setActionHandler(a, f); } catch (e) {} };
   h('play', () => play()); h('pause', () => pause()); h('stop', () => pause());
